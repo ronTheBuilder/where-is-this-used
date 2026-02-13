@@ -127,73 +127,114 @@ A free, open-source tool that answers **"where is this used?"** for metadata typ
 
 ### What sets it apart from HappySoup?
 
-| Area | HappySoup | This project (goals) |
+| Area | HappySoup | This project |
 |---|---|---|
 | Standard fields | Unclear / limited | First-class support |
-| Flow as subflow | Not clear | Explicit "which parent flows call this subflow" |
+| Flow as subflow | Not covered | Explicit "which parent flows call this subflow" via Flow metadata parsing |
 | Record types | Not highlighted | Show layouts, flows, Apex, assignment rules |
-| UX | Web app, tree view | TBD - could be SF native (LWC), VS Code extension, CLI, or web |
-| Granularity | Shows component name | Goal: show WHERE within the component |
-| Supplemental APIs | Primarily MetadataComponentDependency | Combine with Metadata API reads, Flow parsing, Apex parsing |
-
-### Technical approach options
-
-**Option A: Pure MetadataComponentDependency queries**
-- Simplest approach
-- Limited by what the API returns (blind spots)
-- Good starting point
-
-**Option B: MetadataComponentDependency + metadata parsing**
-- Query the dependency API for broad coverage
-- Supplement by actually reading Flow XML, Apex code, VF pages, etc.
-- Parse the metadata to find references the dependency API misses
-- More accurate but more complex
-
-**Option C: Build on sfdc-soup**
-- Contribute to or fork the existing MIT-licensed library
-- Add the missing type support
-- Benefit from existing infrastructure
-
-### Delivery format options
-
-1. **SFDX/SF CLI Plugin** - Developers run it from their terminal
-2. **VS Code Extension** - Integrated into the IDE
-3. **Web App** (like HappySoup) - Accessible to admins too
-4. **LWC in Salesforce** - Native Salesforce experience
-5. **Combination** - Core library + multiple frontends
+| UX | External web app, tree view | **Native Salesforce LWC** — runs inside the org |
+| Granularity | Shows component name | Shows WHERE within the component (flow element, Apex line, etc.) |
+| Supplemental APIs | Primarily MetadataComponentDependency | MetadataComponentDependency + targeted Flow metadata parsing |
+| Distribution | Web/local/Docker | **AppExchange managed package** (free) |
 
 ---
 
-## Open Questions for Discussion
+## Decisions Made
 
-1. **Contribute vs. build new?**
-   - HappySoup/sfdc-soup is MIT licensed and covers a lot of ground already. Should we contribute there, fork, or start fresh?
-   - The dependencies-cli is archived - is there value in reviving it?
+### 1. Build new vs. contribute to HappySoup
+**Decision: Build new.**
+- HappySoup is an external web app (Node.js / Heroku). We want a native Salesforce experience (LWC) that runs inside the org
+- Different architecture (Apex + LWC vs. JavaScript + external hosting)
+- AppExchange distribution gives admins one-click install
+- HappySoup's sfdc-soup library remains a useful reference
 
-2. **Target audience?**
-   - Developers only (CLI/VS Code) or also admins (web/in-Salesforce)?
-   - This affects complexity significantly
+### 2. Target audience
+**Decision: Admins AND developers.**
+- Native LWC app inside Salesforce makes it accessible to admins (no CLI knowledge needed)
+- The type-first picker UX is admin-friendly
+- Developers benefit from the same tool
 
-3. **Scope for v1?**
-   - Start with the biggest gaps (standard fields, flows/subflows, record types)?
-   - Or try to be comprehensive from the start?
+### 3. Delivery format
+**Decision: LWC + Apex managed package on AppExchange (free), source code on GitHub (MIT).**
+- AppExchange listing: free, no security review fees for free apps
+- Managed package: upgradeable, protected code in the installed org
+- Open source on GitHub: transparency, community contributions
+- This is the same model used by FormulaShare and Salesforce Labs apps
 
-4. **How to handle the API's blind spots?**
-   - Accept them and document what works/doesn't?
-   - Supplement with metadata parsing (more work but more accurate)?
-   - Both, with parsing as a "deep scan" option?
+### 4. Technical approach
+**Decision: MetadataComponentDependency API + targeted metadata parsing for blind spots.**
+- Primary data source: Tooling API `MetadataComponentDependency` — one query gets most dependencies
+- Supplemental parsing only where the API has known blind spots:
+  - Flow→Flow (subflow) references: parse Flow metadata for `<subflow>` elements
+  - Other gaps addressed as discovered
+- `DependencyService` abstraction makes the data source swappable if the API ever dies
 
-5. **What format for the tool?**
-   - CLI plugin is easiest to build and distribute
-   - Web app is most accessible
-   - LWC would be the most "Salesforce-native" experience
+### 5. Data strategy
+**Decision: Real-time queries for v1 (no caching/indexing).**
+- Simpler architecture, always fresh data
+- No custom object storage overhead
+- The 2,000 row limit rarely hits for a single component lookup
+- Indexing/caching can be added later if needed for large orgs
+
+### 6. Metadata picker UX
+**Decision: Type-first picker.**
+- User selects metadata type first (Standard Field, Custom Field, Flow, Apex Class, etc.)
+- Each type gets its own optimized sub-picker (object→field for fields, search for flows, etc.)
+- Extensible: adding new types = adding a new picker variant
+- Clear to the user what the app supports
+
+### 7. Authentication
+**Decision: Named Credential + setup wizard LWC.**
+- `UserInfo.getSessionId()` does NOT work from Lightning context (security policy blocks it)
+- Named Credential (Connected App + Auth Provider + Named Credential) is the Salesforce-approved approach
+- Safest path for AppExchange security review
+- Setup wizard LWC walks admins through the one-time configuration
+- Includes a "Test Connection" button to verify setup
+
+---
+
+## API Coverage & Blind Spots
+
+### What MetadataComponentDependency tracks well
+
+| Looking up... | Found in... |
+|---|---|
+| Custom Fields | Validation Rules, Layouts, Formulas, VF, Apex, Triggers, Email Templates, Field Sets, Flows, LWC, Process Builder |
+| Standard Fields | Same as custom fields (the API tracks them, the UI just doesn't expose the button) |
+| Apex Classes | Other Apex, Triggers, VF, Lightning Components, Flow Actions |
+| Custom Labels | Apex, Triggers, VF, Lightning Components |
+| Lightning Components | Other LWC/Aura, Lightning Pages, Quick Actions |
+| Flows | Process Builder, Apex, Lightning Pages |
+| Custom Objects | VF, Apex, Triggers, Flows, LWC, Quick Actions, Lightning Pages |
+
+### Known blind spots (API does NOT track)
+
+| Looking up... | NOT found in... | Workaround |
+|---|---|---|
+| Flows | **Other Flows (subflow refs)** | Parse Flow metadata for `<subflow>` elements |
+| Custom Fields | Reports, Sharing Rules, List Views, Profile/PermSet FLS | None for v1 (Reports are completely excluded from the API) |
+| Custom Objects | Custom Tabs, Reports, Report Types | None for v1 |
+| Global Value Sets | Custom Fields that use them | None for v1 |
+| Lightning Components | Flows, Action Overrides | None for v1 |
+
+### API fallback strategy
+
+If Salesforce ever kills MetadataComponentDependency, the fallback is brute-force metadata parsing:
+- Query all Apex class/trigger bodies via Tooling API and string-search for references
+- Retrieve Flow metadata and parse XML for field/object references
+- Retrieve VF page markup and search
+- This is ~100x more API calls and would need async processing (Queueable/Batch)
+- The `DependencyService` abstraction means only that one class changes
+
+**Risk assessment**: The API has been "Beta" since Summer '18 (7+ years). Salesforce rarely kills widely-used beta APIs. More likely it stays in eternal beta or eventually GAs.
 
 ---
 
 ## Next Steps
 
-- [ ] Decide on contribute vs. new project
-- [ ] Define target audience and delivery format
-- [ ] Scope v1 feature set
-- [ ] Create a PRD based on these decisions
-- [ ] Set up the project foundation
+- [x] Decide on contribute vs. new project → **Build new**
+- [x] Define target audience and delivery format → **Admins + devs, LWC managed package**
+- [x] Scope v1 feature set → **Standard Fields, Custom Fields, Flows, Apex Classes**
+- [x] Design mockup → **Created: `docs/design-mockup.html`**
+- [ ] Create a PRD in `docs/`
+- [ ] Begin building

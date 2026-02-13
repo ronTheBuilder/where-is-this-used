@@ -13,8 +13,8 @@ This fills a major gap: Salesforce's built-in "Where is this used?" button only 
 
 ## Key Documents
 
-- `docs/discussion.md` — Full landscape research, API analysis, competitive analysis, open questions (all resolved)
-- `docs/design-mockup.html` — Interactive HTML mockup of the UI (open in browser to view)
+- `docs/discussion.md` — Full landscape research, API analysis, competitive analysis, architecture decisions (all open questions resolved)
+- `docs/design-mockup.html` — Interactive HTML mockup of the UI (open in browser to view); shows the type-first metadata picker, accordion results with badges, setup wizard, and the SLDS-faithful design
 
 ## Decided Architecture
 
