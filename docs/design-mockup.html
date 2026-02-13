@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Where Is This Used? — Design Mockup</title>
+<style>
+  /* ═══════════════════════════════════════════
+     SLDS-FAITHFUL DESIGN SYSTEM
+     Authentic Salesforce Lightning aesthetic
+     ═══════════════════════════════════════════ */
+
+  :root {
+    /* Brand palette — straight from SLDS */
+    --brand-primary: #0176d3;
+    --brand-hover: #014486;
+    --brand-active: #032d60;
+    --interactive: #1b96ff;
+    --interactive-hover: #0176d3;
+    --destructive: #ea001e;
+    --success: #2e844a;
+    --warning: #dd7a01;
+
+    /* Neutrals */
+    --page-bg: #f3f3f3;
+    --card-bg: #ffffff;
+    --border-color: #e5e5e5;
+    --border-strong: #c9c9c9;
+    --text-default: #181818;
+    --text-secondary: #444444;
+    --text-tertiary: #706e6b;
+    --text-inverse: #ffffff;
+    --text-link: #0176d3;
+
+    /* Spacing scale */
+    --sp-xxs: 4px;
+    --sp-xs: 8px;
+    --sp-s: 12px;
+    --sp-m: 16px;
+    --sp-l: 24px;
+    --sp-xl: 32px;
+    --sp-xxl: 48px;
+
+    /* Typography — Salesforce Sans approximation */
+    --font-family: 'Salesforce Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-size-xs: 11px;
+    --font-size-s: 12px;
+    --font-size-m: 13px;
+    --font-size-body: 14px;
+    --font-size-l: 16px;
+    --font-size-xl: 20px;
+    --font-size-xxl: 24px;
+
+    /* Shadows — SLDS elevation */
+    --shadow-card: 0 2px 2px rgba(0,0,0,0.05);
+    --shadow-dropdown: 0 2px 8px rgba(0,0,0,0.16);
+    --shadow-modal: 0 4px 16px rgba(0,0,0,0.18);
+
+    /* Radius */
+    --radius-s: 4px;
+    --radius-m: 8px;
+    --radius-pill: 100px;
+  }
+
+  @font-face {
+    font-family: 'Salesforce Sans';
+    src: local('Salesforce Sans'), local('SalesforceSans-Regular');
+    font-weight: 400;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-family);
+    font-size: var(--font-size-body);
+    color: var(--text-default);
+    background: var(--page-bg);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ═══════════════════════════════════════════
+     GLOBAL NAV BAR (Salesforce header)
+     ═══════════════════════════════════════════ */
+
+  .sf-global-nav {
+    background: var(--brand-active);
+    height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 0 var(--sp-m);
+    gap: var(--sp-m);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .sf-global-nav__logo {
+    width: 22px;
+    height: 22px;
+    opacity: 0.9;
+  }
+
+  .sf-global-nav__tabs {
+    display: flex;
+    gap: 2px;
+    height: 100%;
+    align-items: stretch;
+  }
+
+  .sf-global-nav__tab {
+    display: flex;
+    align-items: center;
+    padding: 0 var(--sp-m);
+    color: rgba(255,255,255,0.85);
+    font-size: var(--font-size-m);
+    font-weight: 400;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.15s;
+    text-decoration: none;
+    user-select: none;
+  }
+
+  .sf-global-nav__tab:hover {
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+  }
+
+  .sf-global-nav__tab--active {
+    color: #fff;
+    border-bottom-color: #fff;
+    font-weight: 700;
+  }
+
+  .sf-global-nav__spacer { flex: 1; }
+
+  .sf-global-nav__icon {
+    width: 20px;
+    height: 20px;
+    opacity: 0.7;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .sf-global-nav__icon:hover { opacity: 1; }
+
+  /* ═══════════════════════════════════════════
+     PAGE HEADER
+     ═══════════════════════════════════════════ */
+
+  .page-header {
+    background: var(--card-bg);
+    border-bottom: 1px solid var(--border-color);
+    padding: var(--sp-l) var(--sp-xl);
+    display: flex;
+    align-items: center;
+    gap: var(--sp-m);
+  }
+
+  .page-header__icon-container {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-s);
+    background: linear-gradient(135deg, #0176d3 0%, #1b96ff 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .page-header__icon-container svg {
+    width: 22px;
+    height: 22px;
+    fill: #fff;
+  }
+
+  .page-header__text h1 {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    color: var(--text-default);
+    line-height: 1.25;
+  }
+
+  .page-header__text p {
+    font-size: var(--font-size-m);
+    color: var(--text-tertiary);
+    margin-top: 2px;
+  }
+
+  .page-header__actions {
+    margin-left: auto;
+    display: flex;
+    gap: var(--sp-xs);
+  }
+
+  /* ═══════════════════════════════════════════
+     TAB BAR (Finder / Setup)
+     ═══════════════════════════════════════════ */
+
+  .tab-bar {
+    background: var(--card-bg);
+    border-bottom: 1px solid var(--border-color);
+    padding: 0 var(--sp-xl);
+    display: flex;
+    gap: 0;
+  }
+
+  .tab-bar__item {
+    padding: var(--sp-s) var(--sp-m);
+    font-size: var(--font-size-body);
+    font-weight: 400;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.15s;
+    user-select: none;
+  }
+
+  .tab-bar__item:hover {
+    color: var(--brand-primary);
+  }
+
+  .tab-bar__item--active {
+    color: var(--brand-primary);
+    font-weight: 700;
+    border-bottom-color: var(--brand-primary);
+  }
+
+  /* ═══════════════════════════════════════════
+     MAIN CONTENT AREA
+     ═══════════════════════════════════════════ */
+
+  .content {
+    padding: var(--sp-l) var(--sp-xl);
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  /* ═══════════════════════════════════════════
+     CARD
+     ═══════════════════════════════════════════ */
+
+  .slds-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-m);
+    box-shadow: var(--shadow-card);
+  }
+
+  .slds-card__header {
+    padding: var(--sp-m) var(--sp-l);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+  }
+
+  .slds-card__header-title {
+    font-size: var(--font-size-body);
+    font-weight: 700;
+    color: var(--text-default);
+  }
+
+  .slds-card__body {
+    padding: var(--sp-l);
+  }
+
+  /* ═══════════════════════════════════════════
+     FORM ELEMENTS (SLDS-style)
+     ═══════════════════════════════════════════ */
+
+  .form-row {
+    display: flex;
+    gap: var(--sp-m);
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-xxs);
+    min-width: 200px;
+    flex: 1;
+  }
+
+  .form-group--auto {
+    flex: 0 0 auto;
+    min-width: auto;
+  }
+
+  .form-label {
+    font-size: var(--font-size-s);
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .form-select, .form-input {
+    height: 36px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-s);
+    padding: 0 var(--sp-s);
+    font-size: var(--font-size-body);
+    font-family: var(--font-family);
+    color: var(--text-default);
+    background: var(--card-bg);
+    transition: border-color 0.15s, box-shadow 0.15s;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .form-select {
+    padding-right: 32px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%23706e6b' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    cursor: pointer;
+  }
+
+  .form-select:focus, .form-input:focus {
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 1px var(--brand-primary);
+  }
+
+  /* ═══════════════════════════════════════════
+     BUTTONS
+     ═══════════════════════════════════════════ */
+
+  .btn {
+    height: 36px;
+    padding: 0 var(--sp-m);
+    border: 1px solid transparent;
+    border-radius: var(--radius-s);
+    font-size: var(--font-size-body);
+    font-weight: 700;
+    font-family: var(--font-family);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    transition: all 0.15s;
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  .btn--brand {
+    background: var(--brand-primary);
+    color: var(--text-inverse);
+  }
+  .btn--brand:hover {
+    background: var(--brand-hover);
+  }
+  .btn--brand:active {
+    background: var(--brand-active);
+  }
+
+  .btn--neutral {
+    background: var(--card-bg);
+    border-color: var(--border-strong);
+    color: var(--text-default);
+  }
+  .btn--neutral:hover {
+    background: #f3f3f3;
+  }
+
+  .btn--outline-brand {
+    background: var(--card-bg);
+    border-color: var(--brand-primary);
+    color: var(--brand-primary);
+  }
+  .btn--outline-brand:hover {
+    background: #f0f8ff;
+  }
+
+  .btn svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+
+  /* ═══════════════════════════════════════════
+     SUMMARY BADGES / STAT CARDS
+     ═══════════════════════════════════════════ */
+
+  .summary-bar {
+    display: flex;
+    gap: var(--sp-xs);
+    flex-wrap: wrap;
+    margin-bottom: var(--sp-l);
+  }
+
+  .summary-badge {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    padding: var(--sp-xs) var(--sp-s);
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-pill);
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+    font-size: var(--font-size-m);
+  }
+
+  .summary-badge:hover {
+    border-color: var(--brand-primary);
+    background: #f0f8ff;
+  }
+
+  .summary-badge--active {
+    border-color: var(--brand-primary);
+    background: #e8f4fd;
+    color: var(--brand-primary);
+    font-weight: 700;
+  }
+
+  .summary-badge__count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    color: var(--text-inverse);
+    padding: 0 5px;
+  }
+
+  .badge-color--flow { background: #dd7a01; }
+  .badge-color--apex { background: #0176d3; }
+  .badge-color--validation { background: #ea001e; }
+  .badge-color--layout { background: #2e844a; }
+  .badge-color--vf { background: #7526c4; }
+  .badge-color--lwc { background: #0d9dda; }
+  .badge-color--email { background: #939393; }
+  .badge-color--all { background: var(--text-secondary); }
+
+  .summary-badge__label {
+    color: var(--text-secondary);
+  }
+  .summary-badge--active .summary-badge__label {
+    color: var(--brand-primary);
+  }
+
+  /* ═══════════════════════════════════════════
+     TOTAL COUNT HEADER
+     ═══════════════════════════════════════════ */
+
+  .results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--sp-m);
+  }
+
+  .results-header__title {
+    font-size: var(--font-size-l);
+    font-weight: 700;
+    color: var(--text-default);
+  }
+
+  .results-header__subtitle {
+    font-size: var(--font-size-m);
+    color: var(--text-tertiary);
+    margin-left: var(--sp-xs);
+    font-weight: 400;
+  }
+
+  /* ═══════════════════════════════════════════
+     ACCORDION GROUPS
+     ═══════════════════════════════════════════ */
+
+  .accordion {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-m);
+    overflow: hidden;
+    background: var(--card-bg);
+    box-shadow: var(--shadow-card);
+  }
+
+  .accordion__group + .accordion__group {
+    border-top: 1px solid var(--border-color);
+  }
+
+  .accordion__header {
+    display: flex;
+    align-items: center;
+    padding: var(--sp-s) var(--sp-m);
+    cursor: pointer;
+    transition: background 0.1s;
+    gap: var(--sp-xs);
+    user-select: none;
+  }
+
+  .accordion__header:hover {
+    background: #f9f9f9;
+  }
+
+  .accordion__chevron {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    transition: transform 0.2s ease;
+    color: var(--text-tertiary);
+  }
+
+  .accordion__group--open .accordion__chevron {
+    transform: rotate(90deg);
+  }
+
+  .accordion__type-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-s);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .accordion__type-icon svg {
+    width: 16px;
+    height: 16px;
+    fill: #fff;
+  }
+
+  .accordion__type-label {
+    font-size: var(--font-size-body);
+    font-weight: 700;
+    color: var(--text-default);
+    flex: 1;
+  }
+
+  .accordion__count {
+    font-size: var(--font-size-s);
+    color: var(--text-tertiary);
+    padding: 2px var(--sp-xs);
+    background: var(--page-bg);
+    border-radius: var(--radius-pill);
+    font-weight: 700;
+  }
+
+  .accordion__body {
+    display: none;
+  }
+
+  .accordion__group--open .accordion__body {
+    display: block;
+  }
+
+  /* ═══════════════════════════════════════════
+     RESULT ROWS
+     ═══════════════════════════════════════════ */
+
+  .result-row {
+    display: flex;
+    align-items: center;
+    padding: var(--sp-s) var(--sp-m) var(--sp-s) calc(var(--sp-m) + 28px + var(--sp-xs) + 16px + var(--sp-xs));
+    border-top: 1px solid #f0f0f0;
+    transition: background 0.1s;
+    gap: var(--sp-s);
+  }
+
+  .result-row:hover {
+    background: #f7f9fb;
+  }
+
+  .result-row__name {
+    flex: 1;
+    font-size: var(--font-size-body);
+    color: var(--text-link);
+    cursor: pointer;
+    text-decoration: none;
+    font-weight: 400;
+  }
+  .result-row__name:hover {
+    text-decoration: underline;
+  }
+
+  .result-row__detail {
+    font-size: var(--font-size-s);
+    color: var(--text-tertiary);
+    min-width: 120px;
+  }
+
+  .result-row__badge {
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+    white-space: nowrap;
+  }
+
+  .badge--read {
+    background: #e8f4fd;
+    color: #0176d3;
+  }
+
+  .badge--write {
+    background: #fef0e1;
+    color: #dd7a01;
+  }
+
+  .badge--read-write {
+    background: #f3e8fd;
+    color: #7526c4;
+  }
+
+  .badge--decision {
+    background: #fff3e0;
+    color: #b8600b;
+  }
+
+  .badge--assignment {
+    background: #e6f4ea;
+    color: #1a7431;
+  }
+
+  .badge--screen {
+    background: #e8f4fd;
+    color: #0b5cab;
+  }
+
+  .badge--record-update {
+    background: #fce4ec;
+    color: #b71c1c;
+  }
+
+  .badge--get-records {
+    background: #e3f2fd;
+    color: #0d47a1;
+  }
+
+  .badge--filter {
+    background: #f3e5f5;
+    color: #6a1b9a;
+  }
+
+  .badge--column {
+    background: #e0f2f1;
+    color: #004d40;
+  }
+
+  .badge--formula {
+    background: #fff8e1;
+    color: #8d6e00;
+  }
+
+  .result-row__action {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-s);
+    cursor: pointer;
+    transition: background 0.1s;
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+  }
+
+  .result-row__action:hover {
+    background: var(--page-bg);
+    color: var(--brand-primary);
+  }
+
+  .result-row__action svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* ═══════════════════════════════════════════
+     LOOKUP FIELD INDICATOR
+     ═══════════════════════════════════════════ */
+
+  .field-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    padding: var(--sp-xs) var(--sp-s);
+    background: #e8f4fd;
+    border: 1px solid #bde0fe;
+    border-radius: var(--radius-s);
+    margin-bottom: var(--sp-l);
+    font-size: var(--font-size-m);
+  }
+
+  .field-indicator__icon {
+    width: 16px;
+    height: 16px;
+    color: var(--brand-primary);
+  }
+
+  .field-indicator__label {
+    color: var(--text-secondary);
+  }
+
+  .field-indicator__value {
+    font-weight: 700;
+    color: var(--brand-primary);
+  }
+
+  .field-indicator__type {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    padding: 1px 6px;
+    background: rgba(1, 118, 211, 0.08);
+    border-radius: var(--radius-pill);
+  }
+
+  /* ═══════════════════════════════════════════
+     SETUP WIZARD
+     ═══════════════════════════════════════════ */
+
+  .setup-panel {
+    display: none;
+  }
+
+  .setup-panel--active {
+    display: block;
+  }
+
+  .setup-steps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-m);
+  }
+
+  .setup-step {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-m);
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+  }
+
+  .setup-step__header {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-s);
+    padding: var(--sp-m) var(--sp-l);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .setup-step__header:hover {
+    background: #fafafa;
+  }
+
+  .setup-step__number {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--page-bg);
+    border: 2px solid var(--border-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-size-s);
+    font-weight: 700;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+
+  .setup-step--complete .setup-step__number {
+    background: var(--success);
+    border-color: var(--success);
+    color: white;
+  }
+
+  .setup-step--current .setup-step__number {
+    background: var(--brand-primary);
+    border-color: var(--brand-primary);
+    color: white;
+  }
+
+  .setup-step__title {
+    font-weight: 700;
+    font-size: var(--font-size-body);
+    color: var(--text-default);
+    flex: 1;
+  }
+
+  .setup-step__status {
+    font-size: var(--font-size-s);
+    color: var(--text-tertiary);
+  }
+
+  .setup-step--complete .setup-step__status {
+    color: var(--success);
+    font-weight: 700;
+  }
+
+  .setup-step__body {
+    padding: 0 var(--sp-l) var(--sp-l) calc(var(--sp-l) + 28px + var(--sp-s));
+    display: none;
+  }
+
+  .setup-step--open .setup-step__body {
+    display: block;
+  }
+
+  .setup-step__instructions {
+    font-size: var(--font-size-m);
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+
+  .setup-step__instructions ol {
+    padding-left: var(--sp-l);
+    margin: var(--sp-s) 0;
+  }
+
+  .setup-step__instructions li {
+    margin-bottom: var(--sp-xs);
+  }
+
+  .setup-step__instructions code {
+    background: #f3f3f3;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: var(--font-size-s);
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    color: var(--brand-active);
+  }
+
+  /* Connection test */
+  .connection-test {
+    margin-top: var(--sp-m);
+    padding: var(--sp-m);
+    background: var(--page-bg);
+    border-radius: var(--radius-s);
+    display: flex;
+    align-items: center;
+    gap: var(--sp-m);
+  }
+
+  .connection-test__result {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    font-size: var(--font-size-m);
+    font-weight: 700;
+  }
+
+  .connection-test__result--success {
+    color: var(--success);
+  }
+
+  .connection-test__result--error {
+    color: var(--destructive);
+  }
+
+  /* ═══════════════════════════════════════════
+     EMPTY STATE
+     ═══════════════════════════════════════════ */
+
+  .empty-state {
+    text-align: center;
+    padding: var(--sp-xxl) var(--sp-l);
+  }
+
+  .empty-state__illustration {
+    width: 160px;
+    height: 120px;
+    margin: 0 auto var(--sp-l);
+    opacity: 0.6;
+  }
+
+  .empty-state__title {
+    font-size: var(--font-size-l);
+    font-weight: 700;
+    color: var(--text-default);
+    margin-bottom: var(--sp-xs);
+  }
+
+  .empty-state__description {
+    font-size: var(--font-size-body);
+    color: var(--text-tertiary);
+    max-width: 380px;
+    margin: 0 auto;
+  }
+
+  /* ═══════════════════════════════════════════
+     LOADING STATE
+     ═══════════════════════════════════════════ */
+
+  .spinner {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border: 2.5px solid var(--border-color);
+    border-top-color: var(--brand-primary);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ═══════════════════════════════════════════
+     VIEW TOGGLE
+     ═══════════════════════════════════════════ */
+
+  .view-toggle {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-s);
+    overflow: hidden;
+  }
+
+  .view-toggle__btn {
+    width: 32px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background: var(--card-bg);
+    border: none;
+    color: var(--text-tertiary);
+    transition: all 0.1s;
+  }
+
+  .view-toggle__btn:hover {
+    background: var(--page-bg);
+    color: var(--text-secondary);
+  }
+
+  .view-toggle__btn--active {
+    background: var(--brand-primary);
+    color: white;
+  }
+
+  .view-toggle__btn--active:hover {
+    background: var(--brand-hover);
+    color: white;
+  }
+
+  .view-toggle__btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* ═══════════════════════════════════════════
+     RESPONSIVE
+     ═══════════════════════════════════════════ */
+
+  @media (max-width: 768px) {
+    .form-row { flex-direction: column; }
+    .form-group { min-width: 100%; }
+    .summary-bar { gap: var(--sp-xxs); }
+    .result-row {
+      padding-left: var(--sp-m);
+      flex-wrap: wrap;
+    }
+    .content {
+      padding: var(--sp-m);
+    }
+  }
+
+  /* ═══════════════════════════════════════════
+     STATE MANAGEMENT (CSS-driven demo)
+     ═══════════════════════════════════════════ */
+
+  .finder-panel, .setup-panel {
+    /* Panels swap via JS */
+  }
+
+  /* Annotation callouts */
+  .annotation {
+    position: fixed;
+    z-index: 200;
+    background: #1a1a1a;
+    color: #fff;
+    padding: var(--sp-xs) var(--sp-s);
+    border-radius: var(--radius-s);
+    font-size: var(--font-size-xs);
+    pointer-events: none;
+    box-shadow: var(--shadow-dropdown);
+    max-width: 200px;
+    line-height: 1.4;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════
+     GLOBAL NAV BAR
+     ════════════════════════════════════════════ -->
+<div class="sf-global-nav">
+  <svg class="sf-global-nav__logo" viewBox="0 0 24 24" fill="none">
+    <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z" fill="rgba(255,255,255,0.15)"/>
+    <path d="M17.5 9.5c-.4-1.8-2-3-3.8-3-.7 0-1.4.2-2 .5-.5-.8-1.5-1.5-2.7-1.5-1.7 0-3 1.3-3 3v.3C4.8 9.3 4 10.3 4 11.5 4 13 5.3 14 6.8 14h9.4c1.5 0 2.8-1 2.8-2.5 0-1-.6-1.8-1.5-2z" fill="rgba(255,255,255,0.9)"/>
+  </svg>
+  <div class="sf-global-nav__tabs">
+    <a class="sf-global-nav__tab sf-global-nav__tab--active">Where Is This Used?</a>
+  </div>
+  <div class="sf-global-nav__spacer"></div>
+  <svg class="sf-global-nav__icon" viewBox="0 0 20 20" fill="currentColor" style="color:rgba(255,255,255,0.7)">
+    <path d="M10 12a2 2 0 100-4 2 2 0 000 4zM3 12a2 2 0 100-4 2 2 0 000 4zM17 12a2 2 0 100-4 2 2 0 000 4z"/>
+  </svg>
+</div>
+
+<!-- ════════════════════════════════════════════
+     PAGE HEADER
+     ════════════════════════════════════════════ -->
+<div class="page-header">
+  <div class="page-header__icon-container">
+    <svg viewBox="0 0 24 24" fill="none">
+      <path d="M11 19a8 8 0 100-16 8 8 0 000 16z" stroke="#fff" stroke-width="2.5" fill="none"/>
+      <path d="M21 21l-4.35-4.35" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="11" cy="8.5" r="1" fill="#fff"/>
+      <path d="M11 11v4" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div class="page-header__text">
+    <h1>Where Is This Used?</h1>
+    <p>Find where any metadata component is referenced across your org</p>
+  </div>
+  <div class="page-header__actions">
+    <button class="btn btn--neutral" onclick="exportResults()">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 11v3h12v-3M8 2v9M4 7l4 4 4-4"/></svg>
+      Export
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     TAB BAR
+     ════════════════════════════════════════════ -->
+<div class="tab-bar">
+  <div class="tab-bar__item tab-bar__item--active" onclick="switchTab('finder')">Dependency Finder</div>
+  <div class="tab-bar__item" onclick="switchTab('setup')">Setup</div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     FINDER PANEL
+     ════════════════════════════════════════════ -->
+<div class="content finder-panel" id="finderPanel">
+
+  <!-- SEARCH CARD -->
+  <div class="slds-card" style="margin-bottom: var(--sp-l);">
+    <div class="slds-card__body">
+      <div class="form-row">
+        <div class="form-group" style="max-width: 200px; flex: 0 0 200px;">
+          <label class="form-label">Metadata Type</label>
+          <select class="form-select" id="metadataType" onchange="onTypeChange()">
+            <option value="">Select type...</option>
+            <option value="standard-field" selected>Standard Field</option>
+            <option value="custom-field">Custom Field</option>
+            <option value="flow">Flow</option>
+            <option value="apex-class">Apex Class</option>
+            <option value="record-type">Record Type</option>
+            <option value="custom-label">Custom Label</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="objectPicker">
+          <label class="form-label">Object</label>
+          <select class="form-select" id="objectSelect">
+            <option value="Account" selected>Account</option>
+            <option value="Contact">Contact</option>
+            <option value="Opportunity">Opportunity</option>
+            <option value="Case">Case</option>
+            <option value="Lead">Lead</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="fieldPicker">
+          <label class="form-label">Field</label>
+          <select class="form-select" id="fieldSelect">
+            <option value="Industry" selected>Industry</option>
+            <option value="Name">Name</option>
+            <option value="Type">Type</option>
+            <option value="Rating">Rating</option>
+            <option value="OwnerId">Owner</option>
+            <option value="AnnualRevenue">Annual Revenue</option>
+          </select>
+        </div>
+
+        <div class="form-group form-group--auto">
+          <label class="form-label">&nbsp;</label>
+          <button class="btn btn--brand" onclick="runSearch()">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14" stroke-linecap="round"/></svg>
+            Find Usages
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULTS SECTION -->
+  <div id="resultsSection">
+
+    <!-- Current lookup indicator -->
+    <div class="field-indicator">
+      <svg class="field-indicator__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M2 4h12M2 8h8M2 12h10"/>
+      </svg>
+      <span class="field-indicator__label">Showing results for</span>
+      <span class="field-indicator__value">Account.Industry</span>
+      <span class="field-indicator__type">Standard Field &middot; Picklist</span>
+    </div>
+
+    <!-- Summary badges -->
+    <div class="results-header">
+      <div>
+        <span class="results-header__title">12 references found</span>
+        <span class="results-header__subtitle">across 6 metadata types</span>
+      </div>
+      <div class="view-toggle">
+        <button class="view-toggle__btn view-toggle__btn--active" title="Grouped view">
+          <svg viewBox="0 0 14 14" fill="currentColor"><rect x="1" y="1" width="5" height="3" rx="0.5"/><rect x="1" y="5.5" width="12" height="1.5" rx="0.5"/><rect x="1" y="8.5" width="12" height="1.5" rx="0.5"/><rect x="1" y="11.5" width="8" height="1.5" rx="0.5"/></svg>
+        </button>
+        <button class="view-toggle__btn" title="Flat list view">
+          <svg viewBox="0 0 14 14" fill="currentColor"><rect x="1" y="1" width="12" height="1.5" rx="0.5"/><rect x="1" y="4" width="12" height="1.5" rx="0.5"/><rect x="1" y="7" width="12" height="1.5" rx="0.5"/><rect x="1" y="10" width="12" height="1.5" rx="0.5"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="summary-bar">
+      <div class="summary-badge summary-badge--active" onclick="filterByType('all')">
+        <span class="summary-badge__count badge-color--all">12</span>
+        <span class="summary-badge__label">All</span>
+      </div>
+      <div class="summary-badge" onclick="filterByType('flow')">
+        <span class="summary-badge__count badge-color--flow">4</span>
+        <span class="summary-badge__label">Flows</span>
+      </div>
+      <div class="summary-badge" onclick="filterByType('apex')">
+        <span class="summary-badge__count badge-color--apex">3</span>
+        <span class="summary-badge__label">Apex Classes</span>
+      </div>
+      <div class="summary-badge" onclick="filterByType('validation')">
+        <span class="summary-badge__count badge-color--validation">2</span>
+        <span class="summary-badge__label">Validation Rules</span>
+      </div>
+      <div class="summary-badge" onclick="filterByType('layout')">
+        <span class="summary-badge__count badge-color--layout">1</span>
+        <span class="summary-badge__label">Layouts</span>
+      </div>
+      <div class="summary-badge" onclick="filterByType('lwc')">
+        <span class="summary-badge__count badge-color--lwc">1</span>
+        <span class="summary-badge__label">Lightning Components</span>
+      </div>
+      <div class="summary-badge" onclick="filterByType('vf')">
+        <span class="summary-badge__count badge-color--vf">1</span>
+        <span class="summary-badge__label">Visualforce Pages</span>
+      </div>
+    </div>
+
+    <!-- Accordion results -->
+    <div class="accordion" id="resultsAccordion">
+
+      <!-- FLOWS -->
+      <div class="accordion__group accordion__group--open" data-type="flow">
+        <div class="accordion__header" onclick="toggleAccordion(this)">
+          <svg class="accordion__chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 3l5 5-5 5"/></svg>
+          <div class="accordion__type-icon badge-color--flow">
+            <svg viewBox="0 0 16 16"><path d="M3 3h4v4H3zM9 3h4v4H9zM6 9h4v4H6z"/></svg>
+          </div>
+          <span class="accordion__type-label">Flows</span>
+          <span class="accordion__count">4</span>
+        </div>
+        <div class="accordion__body">
+          <div class="result-row">
+            <a class="result-row__name" href="#">Account_Enrichment_Flow</a>
+            <span class="result-row__detail">Record-Triggered Flow</span>
+            <span class="result-row__badge badge--decision">Decision</span>
+            <div class="result-row__action" title="Open in Flow Builder">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1v-3M10 2h4v4M7 9l7-7"/></svg>
+            </div>
+          </div>
+          <div class="result-row">
+            <a class="result-row__name" href="#">Lead_Convert_Assignment</a>
+            <span class="result-row__detail">Record-Triggered Flow</span>
+            <span class="result-row__badge badge--assignment">Assignment</span>
+            <div class="result-row__action" title="Open in Flow Builder">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1v-3M10 2h4v4M7 9l7-7"/></svg>
+            </div>
+          </div>
+          <div class="result-row">
+            <a class="result-row__name" href="#">Account_Onboarding_Screen</a>
+            <span class="result-row__detail">Screen Flow</span>
+            <span class="result-row__badge badge--screen">Screen</span>
+            <div class="result-row__action" title="Open in Flow Builder">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1v-3M10 2h4v4M7 9l7-7"/></svg>
+            </div>
+          </div>
+          <div class="result-row">
+            <a class="result-row__name" href="#">Territory_Assignment_Auto</a>
+            <span class="result-row__detail">Autolaunched Flow</span>
+            <span class="result-row__badge badge--get-records">Get Records</span>
+            <div class="result-row__action" title="Open in Flow Builder">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1v-3M10 2h4v4M7 9l7-7"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- APEX CLASSES -->
+      <div class="accordion__group accordion__group--open" data-type="apex">
+        <div class="accordion__header" onclick="toggleAccordion(this)">
+          <svg class="accordion__chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 3l5 5-5 5"/></svg>
+          <div class="accordion__type-icon badge-color--apex">
+            <svg viewBox="0 0 16 16"><path d="M4 4l4 4-4 4M8 12h4"/></svg>
+          </div>
+          <span class="accordion__type-label">Apex Classes</span>
+          <span class="accordion__count">3</span>
+        </div>
+        <div class="accordion__body">
+          <div class="result-row">
+            <a class="result-row__name" href="#">AccountTriggerHandler</a>
+            <span class="result-row__detail">Line 47, 89, 112</span>
+            <span class="result-row__badge badge--read-write">Read &amp; Write</span>
+            <div class="result-row__action" title="Open in Developer Console">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1v-3M10 2h4v4M7 9l7-7"/></svg>
+            </div>
+          </div>
+          <div class="result-row">
+            <a class="result-row__name" href="#">IndustryAnalyticsService</a>
+            <span class="result-row__detail">Line 23</span>
+            <span class="result-row__badge badge--read">Read</span>
+            <div class="result-row__action" title="Open in Developer Console">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1v-3M10 2h4v4M7 9l7-7"/></svg>
+            </div>
+          </div>
+          <div class="result-row">
+            <a class="result-row__name" href="#">AccountMergeUtility</a>
+            <span class="result-row__detail">Line 156</span>
+            <span class="result-row__badge badge--write">Write</span>
+            <div class="result-row__action" title="Open in Developer Console">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1v-3M10 2h4v4M7 9l7-7"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VALIDATION RULES -->
+      <div class="accordion__group accordion__group--open" data-type="validation">
+        <div class="accordion__header" onclick="toggleAccordion(this)">
+          <svg class="accordion__chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 3l5 5-5 5"/></svg>
+          <div class="accordion__type-icon badge-color--validation">
+            <svg viewBox="0 0 16 16"><path d="M3 8l3 3 7-7" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <span class="accordion__type-label">Validation Rules</span>
+          <span class="accordion__count">2</span>
+        </div>
+        <div class="accordion__body">
+          <div class="result-row">
+            <a class="result-row__name" href="#">Industry_Required_For_Enterprise</a>
+            <span class="result-row__detail">Account Validation Rule</span>
+            <span class="result-row__badge badge--formula">Formula</span>
+            <div class="result-row__action" title="Open in Setup">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1v-3M10 2h4v4M7 9l7-7"/></svg>
+            </div>
+          </div>
+          <div class="result-row">
+            <a class="result-row__name" href="#">Valid_Industry_Values</a>
+            <span class="result-row__detail">Account Validation Rule</span>
+            <span class="result-row__badge badge--formula">Formula</span>
+            <div class="result-row__action" title="Open in Setup">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1v-3M10 2h4v4M7 9l7-7"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LAYOUTS -->
+      <div class="accordion__group" data-type="layout">
+        <div class="accordion__header" onclick="toggleAccordion(this)">
+          <svg class="accordion__chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 3l5 5-5 5"/></svg>
+          <div class="accordion__type-icon badge-color--layout">
+            <svg viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="3" rx="0.5" fill="#fff"/><rect x="2" y="7" width="5" height="7" rx="0.5" fill="#fff"/><rect x="9" y="7" width="5" height="7" rx="0.5" fill="#fff"/></svg>
+          </div>
+          <span class="accordion__type-label">Layouts</span>
+          <span class="accordion__count">1</span>
+        </div>
+        <div class="accordion__body">
+          <div class="result-row">
+            <a class="result-row__name" href="#">Account Layout</a>
+            <span class="result-row__detail">Page Layout &middot; Account Details section</span>
+            <span class="result-row__badge badge--column">Field</span>
+            <div class="result-row__action" title="Open in Setup">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1v-3M10 2h4v4M7 9l7-7"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LWC -->
+      <div class="accordion__group" data-type="lwc">
+        <div class="accordion__header" onclick="toggleAccordion(this)">
+          <svg class="accordion__chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 3l5 5-5 5"/></svg>
+          <div class="accordion__type-icon badge-color--lwc">
+            <svg viewBox="0 0 16 16"><path d="M8 2L2 6v4l6 4 6-4V6L8 2z" fill="none" stroke="#fff" stroke-width="1.5"/></svg>
+          </div>
+          <span class="accordion__type-label">Lightning Web Components</span>
+          <span class="accordion__count">1</span>
+        </div>
+        <div class="accordion__body">
+          <div class="result-row">
+            <a class="result-row__name" href="#">accountIndustryBadge</a>
+            <span class="result-row__detail">LWC &middot; wire getRecord</span>
+            <span class="result-row__badge badge--read">Read</span>
+            <div class="result-row__action" title="Open">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1v-3M10 2h4v4M7 9l7-7"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VISUALFORCE -->
+      <div class="accordion__group" data-type="vf">
+        <div class="accordion__header" onclick="toggleAccordion(this)">
+          <svg class="accordion__chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 3l5 5-5 5"/></svg>
+          <div class="accordion__type-icon badge-color--vf">
+            <svg viewBox="0 0 16 16"><path d="M4 4l4 4-4 4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 4l4 4-4 4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <span class="accordion__type-label">Visualforce Pages</span>
+          <span class="accordion__count">1</span>
+        </div>
+        <div class="accordion__body">
+          <div class="result-row">
+            <a class="result-row__name" href="#">AccountDetailOverride</a>
+            <span class="result-row__detail">Visualforce Page</span>
+            <span class="result-row__badge badge--read">Read</span>
+            <div class="result-row__action" title="Open">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1v-3M10 2h4v4M7 9l7-7"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- EMPTY STATE (hidden by default, shown when no search) -->
+  <div id="emptyState" style="display:none;">
+    <div class="slds-card">
+      <div class="empty-state">
+        <svg class="empty-state__illustration" viewBox="0 0 160 120" fill="none">
+          <rect x="30" y="30" width="100" height="70" rx="6" fill="#e8f4fd" stroke="#bde0fe" stroke-width="1.5"/>
+          <circle cx="80" cy="55" r="16" fill="#bde0fe"/>
+          <path d="M80 48v14M73 55h14" stroke="#0176d3" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M95 70l12 12" stroke="#0176d3" stroke-width="3" stroke-linecap="round"/>
+          <rect x="45" y="82" width="30" height="4" rx="2" fill="#bde0fe"/>
+          <rect x="80" y="82" width="20" height="4" rx="2" fill="#d4edfc"/>
+        </svg>
+        <h2 class="empty-state__title">Find metadata dependencies</h2>
+        <p class="empty-state__description">Select a metadata component above to discover where it's used across your org — including standard fields, flows, and more.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     SETUP PANEL
+     ════════════════════════════════════════════ -->
+<div class="content setup-panel" id="setupPanel" style="display:none;">
+
+  <div class="slds-card" style="margin-bottom: var(--sp-l); border-left: 4px solid var(--brand-primary);">
+    <div class="slds-card__body" style="padding: var(--sp-m) var(--sp-l);">
+      <div style="display:flex; align-items:center; gap: var(--sp-xs); margin-bottom: var(--sp-xs);">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="var(--brand-primary)"><circle cx="8" cy="5" r="1.5"/><path d="M7 8h2v5H7z"/></svg>
+        <strong style="color: var(--brand-primary); font-size: var(--font-size-body);">One-time setup required</strong>
+      </div>
+      <p style="color: var(--text-secondary); font-size: var(--font-size-m); margin: 0;">
+        Where Is This Used? needs a Named Credential to securely call the Tooling API within your org.
+        Follow the steps below — this only takes a few minutes.
+      </p>
+    </div>
+  </div>
+
+  <div class="setup-steps">
+    <!-- Step 1 -->
+    <div class="setup-step setup-step--complete">
+      <div class="setup-step__header" onclick="toggleSetupStep(this)">
+        <div class="setup-step__number">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7l3 3 5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <span class="setup-step__title">Create Connected App</span>
+        <span class="setup-step__status">Complete</span>
+      </div>
+      <div class="setup-step__body">
+        <div class="setup-step__instructions">
+          <ol>
+            <li>Go to <strong>Setup</strong> &rarr; <strong>App Manager</strong> &rarr; <strong>New Connected App</strong></li>
+            <li>Set Connected App Name to <code>Where Is This Used</code></li>
+            <li>Enable OAuth &rarr; set callback URL to <code>https://login.salesforce.com/services/oauth2/callback</code></li>
+            <li>Add OAuth scopes: <code>Full access (full)</code> and <code>Perform requests at any time (refresh_token)</code></li>
+            <li>Save, then copy the <strong>Consumer Key</strong> and <strong>Consumer Secret</strong></li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="setup-step setup-step--complete">
+      <div class="setup-step__header" onclick="toggleSetupStep(this)">
+        <div class="setup-step__number">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7l3 3 5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <span class="setup-step__title">Create Auth. Provider</span>
+        <span class="setup-step__status">Complete</span>
+      </div>
+      <div class="setup-step__body">
+        <div class="setup-step__instructions">
+          <ol>
+            <li>Go to <strong>Setup</strong> &rarr; <strong>Auth. Providers</strong> &rarr; <strong>New</strong></li>
+            <li>Provider Type: <code>Salesforce</code></li>
+            <li>Name: <code>WITU Auth Provider</code></li>
+            <li>Paste your <strong>Consumer Key</strong> and <strong>Consumer Secret</strong> from Step 1</li>
+            <li>Default Scopes: <code>full refresh_token</code></li>
+            <li>Save</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="setup-step setup-step--current setup-step--open">
+      <div class="setup-step__header" onclick="toggleSetupStep(this)">
+        <div class="setup-step__number">3</div>
+        <span class="setup-step__title">Create Named Credential</span>
+        <span class="setup-step__status">In Progress</span>
+      </div>
+      <div class="setup-step__body">
+        <div class="setup-step__instructions">
+          <ol>
+            <li>Go to <strong>Setup</strong> &rarr; <strong>Named Credentials</strong> &rarr; <strong>New Legacy</strong></li>
+            <li>Label: <code>WITU_ToolingAPI</code></li>
+            <li>URL: <code>https://[your-domain].my.salesforce.com</code></li>
+            <li>Identity Type: <code>Named Principal</code></li>
+            <li>Authentication Protocol: <code>OAuth 2.0</code></li>
+            <li>Authentication Provider: select <code>WITU Auth Provider</code></li>
+            <li>Check <strong>Start Authentication Flow on Save</strong></li>
+            <li>Save — you will be redirected to authorize</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="setup-step">
+      <div class="setup-step__header" onclick="toggleSetupStep(this)">
+        <div class="setup-step__number">4</div>
+        <span class="setup-step__title">Test Connection</span>
+        <span class="setup-step__status">Pending</span>
+      </div>
+      <div class="setup-step__body">
+        <div class="setup-step__instructions">
+          <p>Click the button below to verify that Where Is This Used? can successfully connect to the Tooling API.</p>
+          <div class="connection-test">
+            <button class="btn btn--brand" onclick="testConnection(this)">
+              Test Connection
+            </button>
+            <div class="connection-test__result connection-test__result--success" id="connectionResult" style="display:none;">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm3.35 5.35l-4 4a.5.5 0 01-.7 0l-2-2a.5.5 0 01.7-.7L7 9.29l3.65-3.64a.5.5 0 01.7.7z"/></svg>
+              <span>Connected successfully — Tooling API v65.0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ═══════════════════════════════════════════
+  // INTERACTIVE BEHAVIOR
+  // ═══════════════════════════════════════════
+
+  // Tab switching
+  function switchTab(tab) {
+    const tabs = document.querySelectorAll('.tab-bar__item');
+    tabs.forEach(t => t.classList.remove('tab-bar__item--active'));
+
+    if (tab === 'finder') {
+      tabs[0].classList.add('tab-bar__item--active');
+      document.getElementById('finderPanel').style.display = 'block';
+      document.getElementById('setupPanel').style.display = 'none';
+    } else {
+      tabs[1].classList.add('tab-bar__item--active');
+      document.getElementById('finderPanel').style.display = 'none';
+      document.getElementById('setupPanel').style.display = 'block';
+    }
+  }
+
+  // Accordion toggle
+  function toggleAccordion(header) {
+    const group = header.parentElement;
+    group.classList.toggle('accordion__group--open');
+  }
+
+  // Setup step toggle
+  function toggleSetupStep(header) {
+    const step = header.parentElement;
+    step.classList.toggle('setup-step--open');
+  }
+
+  // Filter by type badge
+  function filterByType(type) {
+    const badges = document.querySelectorAll('.summary-badge');
+    badges.forEach(b => b.classList.remove('summary-badge--active'));
+    event.currentTarget.classList.add('summary-badge--active');
+
+    const groups = document.querySelectorAll('.accordion__group');
+    groups.forEach(g => {
+      if (type === 'all' || g.dataset.type === type) {
+        g.style.display = '';
+        g.classList.add('accordion__group--open');
+      } else {
+        g.style.display = 'none';
+      }
+    });
+  }
+
+  // Metadata type change — show/hide contextual pickers
+  function onTypeChange() {
+    const type = document.getElementById('metadataType').value;
+    const objectPicker = document.getElementById('objectPicker');
+    const fieldPicker = document.getElementById('fieldPicker');
+
+    if (type === 'standard-field' || type === 'custom-field') {
+      objectPicker.style.display = '';
+      fieldPicker.style.display = '';
+    } else if (type === 'record-type') {
+      objectPicker.style.display = '';
+      fieldPicker.style.display = 'none';
+    } else {
+      objectPicker.style.display = 'none';
+      fieldPicker.style.display = 'none';
+    }
+  }
+
+  // Simulated search
+  function runSearch() {
+    document.getElementById('resultsSection').style.display = '';
+    document.getElementById('emptyState').style.display = 'none';
+  }
+
+  // Simulated connection test
+  function testConnection(btn) {
+    btn.innerHTML = '<span class="spinner"></span> Testing...';
+    btn.disabled = true;
+    setTimeout(() => {
+      btn.innerHTML = 'Test Connection';
+      btn.disabled = false;
+      document.getElementById('connectionResult').style.display = 'flex';
+    }, 1500);
+  }
+
+  // Export placeholder
+  function exportResults() {
+    alert('Export to CSV — this would generate a dependency report');
+  }
+</script>
+</body>
+</html>
