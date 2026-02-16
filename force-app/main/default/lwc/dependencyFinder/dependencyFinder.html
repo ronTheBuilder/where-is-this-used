@@ -1,0 +1,78 @@
+<template>
+    <lightning-card title="Where Is This Used?" icon-name="utility:search">
+        <div slot="actions">
+            <lightning-button-icon icon-name="utility:settings" alternative-text="Setup" onclick={handleTabClick} data-tab="setup"></lightning-button-icon>
+        </div>
+
+        <!-- Tab bar -->
+        <div class="slds-tabs_default">
+            <ul class="slds-tabs_default__nav" role="tablist">
+                <li class={finderTabClass} role="presentation">
+                    <a role="tab" tabindex="0" data-tab="finder" onclick={handleTabClick}>
+                        Dependency Finder
+                    </a>
+                </li>
+                <li class={setupTabClass} role="presentation">
+                    <a role="tab" tabindex="0" data-tab="setup" onclick={handleTabClick}>
+                        Setup
+                    </a>
+                </li>
+            </ul>
+
+            <!-- Finder tab -->
+            <template if:true={isFinderTab}>
+                <div class="slds-tabs_default__content slds-show" role="tabpanel">
+                    <c-metadata-picker
+                        onsearch={handleSearch}
+                        onsearcherror={handleSearchError}
+                        onloading={handleLoading}>
+                    </c-metadata-picker>
+
+                    <template if:true={isLoading}>
+                        <div class="slds-align_absolute-center slds-m-top_large">
+                            <lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner>
+                        </div>
+                    </template>
+
+                    <template if:true={error}>
+                        <div class="slds-m-top_medium">
+                            <div class="slds-notify slds-notify_alert slds-alert_error" role="alert">
+                                <span class="slds-assistive-text">error</span>
+                                <h2>{error}</h2>
+                            </div>
+                        </div>
+                    </template>
+
+                    <template if:true={hasResults}>
+                        <c-dependency-results
+                            search-response={searchResponse}
+                            class="slds-m-top_medium">
+                        </c-dependency-results>
+                    </template>
+
+                    <template if:false={hasResults}>
+                        <template if:false={isLoading}>
+                            <template if:false={error}>
+                                <div class="slds-illustration slds-illustration_small slds-m-top_x-large">
+                                    <div class="slds-text-longform">
+                                        <h3 class="slds-text-heading_medium">Find metadata dependencies</h3>
+                                        <p class="slds-text-body_regular slds-text-color_weak">
+                                            Select a metadata component above to discover where it's used across your org — including standard fields, flows, and more.
+                                        </p>
+                                    </div>
+                                </div>
+                            </template>
+                        </template>
+                    </template>
+                </div>
+            </template>
+
+            <!-- Setup tab -->
+            <template if:true={isSetupTab}>
+                <div class="slds-tabs_default__content slds-show" role="tabpanel">
+                    <c-setup-wizard></c-setup-wizard>
+                </div>
+            </template>
+        </div>
+    </lightning-card>
+</template>

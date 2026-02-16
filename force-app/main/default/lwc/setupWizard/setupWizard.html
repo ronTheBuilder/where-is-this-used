@@ -1,0 +1,47 @@
+<template>
+    <div class="slds-setup-assistant">
+        <div class="slds-box slds-box_x-small slds-theme_info slds-m-bottom_medium">
+            <p class="slds-text-body_small">
+                <strong>One-time setup required.</strong> Where Is This Used? needs a Named Credential to securely call the Tooling API within your org. Follow the steps below — this only takes a few minutes.
+            </p>
+        </div>
+
+        <lightning-accordion allow-multiple-sections-open active-section-name="step-4">
+            <template for:each={steps} for:item="step">
+                <lightning-accordion-section key={step.number} name={"step-" + step.number} label={step.title}>
+                    <div class="slds-p-horizontal_medium slds-p-bottom_medium">
+                        <p class="slds-text-body_regular slds-text-color_weak slds-m-bottom_small">
+                            {step.description}
+                        </p>
+
+                        <!-- Test connection button for step 4 -->
+                        <template if:true={step.number === 4}>
+                            <div class="slds-m-top_medium">
+                                <lightning-button
+                                    label={testButtonLabel}
+                                    variant={testButtonVariant}
+                                    onclick={handleTestConnection}
+                                    disabled={isTesting}>
+                                </lightning-button>
+
+                                <template if:true={isConnected}>
+                                    <div class="slds-text-color_success slds-m-top_small">
+                                        <lightning-icon icon-name="utility:success" size="x-small" variant="success" class="slds-m-right_xx-small"></lightning-icon>
+                                        Connection successful! The Tooling API is accessible.
+                                    </div>
+                                </template>
+
+                                <template if:true={isConnectionError}>
+                                    <div class="slds-text-color_error slds-m-top_small">
+                                        <lightning-icon icon-name="utility:error" size="x-small" variant="error" class="slds-m-right_xx-small"></lightning-icon>
+                                        {connectionError}
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </lightning-accordion-section>
+            </template>
+        </lightning-accordion>
+    </div>
+</template>

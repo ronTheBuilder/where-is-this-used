@@ -1,36 +1,36 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
     <types>
-        <members>*</members>
+        <members>DependencyService</members>
+        <members>DependencyController</members>
+        <members>MetadataPickerController</members>
+        <members>DependencyServiceTest</members>
+        <members>DependencyControllerTest</members>
+        <members>MetadataPickerControllerTest</members>
         <name>ApexClass</name>
     </types>
     <types>
-        <members>*</members>
-        <name>ApexComponent</name>
-    </types>
-    <types>
-        <members>*</members>
-        <name>ApexPage</name>
-    </types>
-    <types>
-        <members>*</members>
-        <name>ApexTestSuite</name>
-    </types>
-    <types>
-        <members>*</members>
-        <name>ApexTrigger</name>
-    </types>
-    <types>
-        <members>*</members>
-        <name>AuraDefinitionBundle</name>
-    </types>
-    <types>
-        <members>*</members>
+        <members>dependencyFinder</members>
+        <members>metadataPicker</members>
+        <members>dependencyResults</members>
+        <members>setupWizard</members>
         <name>LightningComponentBundle</name>
     </types>
     <types>
-        <members>*</members>
-        <name>StaticResource</name>
+        <members>Where_Is_This_Used</members>
+        <name>CustomTab</name>
+    </types>
+    <types>
+        <members>Where_Is_This_Used_Page</members>
+        <name>FlexiPage</name>
+    </types>
+    <types>
+        <members>Where_Is_This_Used_User</members>
+        <name>PermissionSet</name>
+    </types>
+    <types>
+        <members>Where_Is_This_Used</members>
+        <name>CustomApplication</name>
     </types>
     <version>65.0</version>
 </Package>

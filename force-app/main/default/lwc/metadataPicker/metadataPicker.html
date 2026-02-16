@@ -1,0 +1,52 @@
+<template>
+    <div class="slds-grid slds-wrap slds-gutters_small slds-m-bottom_medium">
+        <!-- Metadata Type -->
+        <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
+            <lightning-combobox
+                label="Metadata Type"
+                value={metadataType}
+                options={metadataTypeOptions}
+                placeholder="Select type..."
+                onchange={handleMetadataTypeChange}>
+            </lightning-combobox>
+        </div>
+
+        <!-- Object picker (for fields) -->
+        <template if:true={showObjectPicker}>
+            <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
+                <lightning-combobox
+                    label="Object"
+                    value={selectedObject}
+                    options={objectOptions}
+                    placeholder="Select object..."
+                    onchange={handleObjectChange}>
+                </lightning-combobox>
+            </div>
+        </template>
+
+        <!-- Component picker -->
+        <template if:true={showComponentPicker}>
+            <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12">
+                <lightning-combobox
+                    label={componentLabel}
+                    value={selectedComponent}
+                    options={componentOptions}
+                    placeholder="Select..."
+                    onchange={handleComponentChange}>
+                </lightning-combobox>
+            </div>
+        </template>
+
+        <!-- Search button -->
+        <div class="slds-col slds-size_1-of-1 slds-medium-size_2-of-12 slds-grid slds-grid_vertical-align-end">
+            <lightning-button
+                variant="brand"
+                label="Find Usages"
+                icon-name="utility:search"
+                disabled={isSearchDisabled}
+                onclick={handleSearch}
+                class="slds-m-top_medium">
+            </lightning-button>
+        </div>
+    </div>
+</template>
