@@ -51,20 +51,54 @@ public with sharing class DependencyService {
         @AuraEnabled public List<DependencyGroup> groups;
     }
 
+    // ═══════════════════════════════════════
+    // Security: Custom Permission gate
+    // ═══════════════════════════════════════
+    private static final String CUSTOM_PERMISSION = 'WITU_Access';
+    private static final Integer MAX_COMPONENT_NAME_LENGTH = 255;
+    // Whitelist: only allow alphanumeric, dots, underscores (valid SF metadata names)
+    private static final Pattern VALID_COMPONENT_NAME = Pattern.compile('^[a-zA-Z][a-zA-Z0-9_.]*$');
+
+    @TestVisible
+    private static void enforceAccess() {
+        if (!FeatureManagement.checkPermission(CUSTOM_PERMISSION)) {
+            throw new DependencyServiceException(
+                'Insufficient permissions. The custom permission "' + CUSTOM_PERMISSION + '" is required. ' +
+                'Ask your admin to assign the "Where Is This Used? User" permission set.'
+            );
+        }
+    }
+
+    private static void validateComponentName(String componentName) {
+        if (String.isBlank(componentName)) {
+            throw new DependencyServiceException('Component name is required.');
+        }
+        String trimmed = componentName.trim();
+        if (trimmed.length() > MAX_COMPONENT_NAME_LENGTH) {
+            throw new DependencyServiceException('Component name exceeds maximum length.');
+        }
+        if (!VALID_COMPONENT_NAME.matcher(trimmed).matches()) {
+            throw new DependencyServiceException('Component name contains invalid characters. Only letters, numbers, dots, and underscores are allowed.');
+        }
+    }
+
     public static List<String> getSupportedMetadataTypes() {
         return new List<String>{ 'Standard Field', 'Custom Field', 'Flow', 'Apex Class' };
     }
 
     public static DependencySearchResponse searchDependencies(String metadataType, String componentName) {
+        enforceAccess();
+
         if (String.isBlank(metadataType) || String.isBlank(componentName)) {
             throw new DependencyServiceException('Metadata type and component name are required.');
         }
 
         String refType = getRefMetadataType(metadataType);
         if (refType == null) {
-            throw new DependencyServiceException('This metadata type is not yet supported: ' + metadataType);
+            throw new DependencyServiceException('This metadata type is not yet supported.');
         }
 
+        validateComponentName(componentName);
         String escapedName = String.escapeSingleQuotes(componentName.trim());
         String soql =
             'SELECT MetadataComponentId, MetadataComponentName, MetadataComponentType, MetadataComponentNamespace, ' +
@@ -94,6 +128,7 @@ public with sharing class DependencyService {
     }
 
     public static List<MetadataOption> getActiveFlows() {
+        enforceAccess();
         String soql =
             'SELECT Id, FlowDefinitionView.ApiName, FlowDefinitionView.Label ' +
             'FROM FlowVersionView ' +
@@ -128,6 +163,7 @@ public with sharing class DependencyService {
     }
 
     public static List<MetadataOption> getApexClasses() {
+        enforceAccess();
         String soql = 'SELECT Id, Name FROM ApexClass ORDER BY Name';
         ToolingQueryResponse queryResponse = queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
 
@@ -143,15 +179,18 @@ public with sharing class DependencyService {
     }
 
     public static Boolean testConnection() {
+        enforceAccess();
         ToolingQueryResponse queryResponse = queryToolingRecords('SELECT Id FROM Organization LIMIT 1', 1);
         return !queryResponse.records.isEmpty();
     }
 
-    public static List<DependencyRecord> findSubflowUsages(String flowApiName) {
+    @TestVisible
+    private static List<DependencyRecord> findSubflowUsages(String flowApiName) {
         if (String.isBlank(flowApiName)) {
             return new List<DependencyRecord>();
         }
 
+        validateComponentName(flowApiName);
         String escapedName = String.escapeSingleQuotes(flowApiName.trim());
         String soql =
             'SELECT Id, FlowDefinitionView.ApiName, FlowDefinitionView.Label ' +
@@ -241,7 +280,20 @@ public with sharing class DependencyService {
         HttpResponse response = new Http().send(request);
         Integer status = response.getStatusCode();
         if (status < 200 || status >= 300) {
-            throw new DependencyServiceException('Tooling API request failed (' + status + '): ' + response.getBody());
+            // Log full error for debugging but don't expose raw API response to users
+            System.debug(LoggingLevel.ERROR, 'Tooling API error (' + status + '): ' + response.getBody());
+
+            String userMessage;
+            if (status == 401 || status == 403) {
+                userMessage = 'Authentication failed. Please verify your Named Credential (WITU_ToolingAPI) is configured correctly.';
+            } else if (status == 404) {
+                userMessage = 'Tooling API endpoint not found. Please verify your org\'s API version supports this feature.';
+            } else if (status == 429) {
+                userMessage = 'API rate limit exceeded. Please wait a moment and try again.';
+            } else {
+                userMessage = 'Tooling API request failed (HTTP ' + status + '). Check Setup > Debug Logs for details.';
+            }
+            throw new DependencyServiceException(userMessage);
         }
         return response;
     }

@@ -26,7 +26,12 @@
     </types>
     <types>
         <members>Where_Is_This_Used_User</members>
+        <members>Where_Is_This_Used_Admin</members>
         <name>PermissionSet</name>
+    </types>
+    <types>
+        <members>WITU_Access</members>
+        <name>CustomPermission</name>
     </types>
     <types>
         <members>Where_Is_This_Used</members>

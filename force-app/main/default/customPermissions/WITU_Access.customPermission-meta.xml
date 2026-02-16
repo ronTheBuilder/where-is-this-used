@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomPermission xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>Where Is This Used? Access</label>
+    <description>Required to use the Where Is This Used? dependency finder. Assign this via the Where Is This Used? permission set to admins and developers who need metadata dependency analysis.</description>
+    <isLicensed>false</isLicensed>
+</CustomPermission>

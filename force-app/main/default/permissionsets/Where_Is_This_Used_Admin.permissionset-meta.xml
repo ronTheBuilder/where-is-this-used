@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
-    <label>Where Is This Used? User</label>
-    <description>Grants access to the Where Is This Used? app, tab, Apex classes, and custom permission. Assign to admins and developers who need metadata dependency analysis.</description>
+    <label>Where Is This Used? Admin</label>
+    <description>Full access to Where Is This Used? including setup wizard, Named Credential configuration, and dependency analysis. Assign to Salesforce admins who manage the app configuration.</description>
     <customPermissions>
         <enabled>true</enabled>
         <name>WITU_Access</name>
@@ -22,6 +22,10 @@
         <tab>Where_Is_This_Used</tab>
         <visibility>Visible</visibility>
     </tabSettings>
+    <userPermissions>
+        <enabled>true</enabled>
+        <name>ViewSetup</name>
+    </userPermissions>
     <hasActivationRequired>false</hasActivationRequired>
     <license></license>
 </PermissionSet>
