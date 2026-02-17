@@ -1,0 +1,103 @@
+.process-flow-map {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbfd 100%);
+}
+
+.stats-bar {
+    border: 1px solid #d8dde6;
+    border-left: 4px solid #0176d3;
+    border-radius: 0.25rem;
+    background: #f3f8fc;
+    padding: 0.75rem;
+}
+
+.timeline {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.timeline-item {
+    position: relative;
+    padding-left: 2.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.timeline-rail {
+    position: absolute;
+    left: 0.8rem;
+    top: 0;
+    bottom: -0.75rem;
+    width: 2px;
+    background: #d8dde6;
+}
+
+.timeline-item:last-child .timeline-rail {
+    display: none;
+}
+
+.phase-marker {
+    position: absolute;
+    left: 0;
+    top: 0.55rem;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    background: #0176d3;
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+}
+
+.phase-card {
+    border: 1px solid #d8dde6;
+    border-radius: 0.25rem;
+    background: #ffffff;
+}
+
+.phase-header {
+    cursor: pointer;
+    border-bottom: 1px solid #eef1f6;
+}
+
+.phase-empty {
+    background: #f6f7f9;
+    color: #5c5f62;
+}
+
+.phase-marker-empty {
+    background: #9aa1a9;
+}
+
+.phase-none {
+    color: #5c5f62;
+    font-style: italic;
+    margin: 0.25rem 0;
+}
+
+.step-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.step-row {
+    border-bottom: 1px dashed #e5e5e5;
+}
+
+.step-row:last-child {
+    border-bottom: 0;
+}
+
+.step-state-badge {
+    min-width: 4.75rem;
+    text-align: center;
+}
+
+.warning-list {
+    margin: 0.25rem 0 0 1rem;
+    padding: 0;
+}

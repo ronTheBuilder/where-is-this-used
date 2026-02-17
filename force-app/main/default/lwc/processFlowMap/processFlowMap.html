@@ -1,0 +1,137 @@
+<template>
+    <div class="slds-card slds-card_boundary process-flow-map">
+        <div class="slds-card__body slds-card__body_inner">
+            <div class="slds-grid slds-wrap slds-gutters_small slds-m-bottom_medium">
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12">
+                    <lightning-combobox
+                        label="Object"
+                        value={selectedObject}
+                        options={objectOptions}
+                        placeholder="Select object..."
+                        onchange={handleObjectChange}>
+                    </lightning-combobox>
+                </div>
+
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_5-of-12">
+                    <lightning-radio-group
+                        name="triggerContext"
+                        label="Trigger Context"
+                        options={contextOptions}
+                        value={selectedContext}
+                        type="button"
+                        onchange={handleContextChange}>
+                    </lightning-radio-group>
+                </div>
+
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12 slds-grid slds-grid_vertical-align-end slds-grid_align-end">
+                    <lightning-button
+                        variant="brand"
+                        label="Analyze"
+                        icon-name="utility:search"
+                        onclick={handleAnalyze}
+                        disabled={isAnalyzeDisabled}
+                        class="slds-m-top_medium">
+                    </lightning-button>
+                </div>
+            </div>
+
+            <template if:true={isLoading}>
+                <div class="slds-align_absolute-center slds-m-vertical_large">
+                    <lightning-spinner alternative-text="Loading process flow" size="medium"></lightning-spinner>
+                </div>
+            </template>
+
+            <template if:true={error}>
+                <div class="slds-notify slds-notify_alert slds-alert_error slds-m-bottom_medium" role="alert">
+                    <span class="slds-assistive-text">error</span>
+                    <h2>{error}</h2>
+                </div>
+            </template>
+
+            <template if:true={hasResults}>
+                <div class="stats-bar slds-m-bottom_medium">
+                    <span class="slds-text-title_bold">Summary:</span>
+                    <span class="slds-m-left_x-small">{statsLabel}</span>
+                    <span class="slds-m-left_medium slds-text-color_weak">({totalAutomations} total)</span>
+                    <lightning-button
+                        variant="neutral"
+                        label="Export as text"
+                        icon-name="utility:download"
+                        onclick={handleExportText}
+                        class="slds-float_right">
+                    </lightning-button>
+                </div>
+
+                <ol class="timeline" role="list">
+                    <template for:each={phaseRows} for:item="phase">
+                        <li key={phase.key} class="timeline-item">
+                            <div class="timeline-rail"></div>
+                            <div class={phase.markerClass} aria-hidden="true">{phase.phaseNumber}</div>
+
+                            <section class={phase.phaseClass}>
+                                <header
+                                    class="slds-grid slds-grid_vertical-align-center slds-p-around_small phase-header"
+                                    data-phase={phase.key}
+                                    onclick={handleTogglePhase}>
+                                    <div class="slds-grow">
+                                        <h3 class="slds-text-heading_small">{phase.phaseNumber}. {phase.phaseName}</h3>
+                                        <p class="slds-text-body_small slds-text-color_weak">{phase.phaseDescription}</p>
+                                    </div>
+                                    <lightning-icon icon-name={phase.toggleIcon} size="x-small"></lightning-icon>
+                                </header>
+
+                                <template if:true={phase.isExpanded}>
+                                    <div class="slds-p-horizontal_small slds-p-bottom_small">
+                                        <template if:true={phase.hasSteps}>
+                                            <ul class="slds-has-dividers_bottom-space step-list" role="list">
+                                                <template for:each={phase.steps} for:item="step">
+                                                    <li key={step.key} class="step-row slds-grid slds-wrap slds-gutters_x-small slds-p-vertical_x-small">
+                                                        <div class="slds-col slds-size_1-of-1 slds-medium-size_7-of-12 slds-grid slds-grid_vertical-align-center">
+                                                            <lightning-icon icon-name={step.iconName} size="x-small" class="slds-m-right_x-small"></lightning-icon>
+                                                            <span class="slds-truncate" title={step.name}>{step.name}</span>
+                                                        </div>
+                                                        <div class="slds-col slds-size_1-of-1 slds-medium-size_5-of-12 slds-grid slds-grid_align-end slds-grid_vertical-align-center">
+                                                            <span class={step.stateClass}>{step.stateLabel}</span>
+                                                            <span class="slds-badge slds-m-left_x-small">{step.triggerContext}</span>
+                                                            <template if:true={step.hasSetupUrl}>
+                                                                <lightning-button-icon
+                                                                    icon-name="utility:new_window"
+                                                                    alternative-text="Open in Setup"
+                                                                    title="Open in Setup"
+                                                                    data-url={step.setupUrl}
+                                                                    onclick={handleOpenSetup}
+                                                                    class="slds-m-left_x-small"
+                                                                    size="small">
+                                                                </lightning-button-icon>
+                                                            </template>
+                                                        </div>
+                                                    </li>
+                                                </template>
+                                            </ul>
+                                        </template>
+
+                                        <template if:false={phase.hasSteps}>
+                                            <p class="phase-none">[none]</p>
+                                        </template>
+                                    </div>
+                                </template>
+                            </section>
+                        </li>
+                    </template>
+                </ol>
+
+                <template if:true={hasWarnings}>
+                    <div class="slds-notify slds-notify_alert slds-alert_warning slds-m-top_medium" role="alert">
+                        <span class="slds-assistive-text">warning</span>
+                        <h2 class="slds-text-title_bold slds-m-right_small">Warnings</h2>
+                        <ul class="warning-list">
+                            <template for:each={warnings} for:item="warning">
+                                <li key={warning}>{warning}</li>
+                            </template>
+                        </ul>
+                    </div>
+                </template>
+            </template>
+        </div>
+    </div>
+</template>
