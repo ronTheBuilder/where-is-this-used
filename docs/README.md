@@ -18,3 +18,4 @@ Finalized artifacts that informed the project. See [delivered/README.md](deliver
 | Document | Description |
 |----------|-------------|
 | [prd.md](prd.md) | Product requirements document (v1) |
+| [metadata-retrieval-analysis.md](metadata-retrieval-analysis.md) | Analysis of metadata retrieval issues for non-field types + feature roadmap |

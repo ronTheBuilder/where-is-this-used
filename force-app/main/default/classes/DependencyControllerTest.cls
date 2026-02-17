@@ -1,5 +1,10 @@
 @IsTest
 private with sharing class DependencyControllerTest {
+    @TestSetup
+    static void setupPermission() {
+        grantAccessPermission();
+    }
+
     @IsTest
     static void getMetadataTypes_returnsExpectedList() {
         List<String> types = DependencyController.getMetadataTypes();
@@ -71,6 +76,31 @@ private with sharing class DependencyControllerTest {
 
             response.setBody('{"done":true,"totalSize":0,"records":[]}');
             return response;
+        }
+    }
+
+    private static void grantAccessPermission() {
+        List<PermissionSet> permissionSets = [
+            SELECT Id FROM PermissionSet
+            WHERE Name IN ('Where_Is_This_Used_User', 'Where_Is_This_Used_Admin')
+            LIMIT 1
+        ];
+        if (!permissionSets.isEmpty()) {
+            List<PermissionSetAssignment> existing = [
+                SELECT Id FROM PermissionSetAssignment
+                WHERE AssigneeId = :UserInfo.getUserId() AND PermissionSetId = :permissionSets[0].Id
+                LIMIT 1
+            ];
+            if (existing.isEmpty()) {
+                try {
+                    insert new PermissionSetAssignment(AssigneeId = UserInfo.getUserId(), PermissionSetId = permissionSets[0].Id);
+                } catch (DmlException e) {
+                    if (e.getMessage().contains('UNABLE_TO_LOCK_ROW')) {
+                        return;
+                    }
+                    throw e;
+                }
+            }
         }
     }
 }

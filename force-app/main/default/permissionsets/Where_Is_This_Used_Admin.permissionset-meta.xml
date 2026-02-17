@@ -4,7 +4,6 @@
     <description>Full access to Where Is This Used? including setup wizard, Named Credential configuration, and dependency analysis. Assign to Salesforce admins who manage the app configuration.</description>
     <applicationVisibilities>
         <application>Where_Is_This_Used</application>
-        <default>false</default>
         <visible>true</visible>
     </applicationVisibilities>
     <customPermissions>

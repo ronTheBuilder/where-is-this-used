@@ -4,7 +4,6 @@
     <description>Grants access to the Where Is This Used? app, tab, Apex classes, and custom permission. Assign to admins and developers who need metadata dependency analysis.</description>
     <applicationVisibilities>
         <application>Where_Is_This_Used</application>
-        <default>false</default>
         <visible>true</visible>
     </applicationVisibilities>
     <customPermissions>
