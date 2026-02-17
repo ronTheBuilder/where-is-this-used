@@ -99,17 +99,32 @@ public with sharing class DependencyService {
         }
 
         validateComponentName(componentName);
-        String escapedName = String.escapeSingleQuotes(componentName.trim());
+        String trimmedName = componentName.trim();
+        String escapedName = String.escapeSingleQuotes(trimmedName);
+        String escapedRefType = String.escapeSingleQuotes(refType);
+
+        // Try filtering by RefMetadataComponentName first; some orgs don't support it in WHERE
         String soql =
             'SELECT MetadataComponentId, MetadataComponentName, MetadataComponentType, MetadataComponentNamespace, ' +
             'RefMetadataComponentName, RefMetadataComponentType ' +
             'FROM MetadataComponentDependency ' +
-            'WHERE RefMetadataComponentName = \'' + escapedName + '\' ' +
-            'AND RefMetadataComponentType = \'' + String.escapeSingleQuotes(refType) + '\' ' +
+            'WHERE RefMetadataComponentType = \'' + escapedRefType + '\' ' +
             'ORDER BY MetadataComponentType, MetadataComponentName';
 
         ToolingQueryResponse dependencyQuery = queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
-        List<DependencyRecord> flattened = parseDependencyRecords(dependencyQuery.records, componentName, refType);
+
+        // Client-side filter by component name (API may not support RefMetadataComponentName in WHERE)
+        List<Object> filteredRecords = new List<Object>();
+        for (Object recordObj : dependencyQuery.records) {
+            Map<String, Object> row = asMap(recordObj);
+            if (row == null) continue;
+            String refName = String.valueOf(row.get('RefMetadataComponentName'));
+            if (refName != null && refName.equalsIgnoreCase(trimmedName)) {
+                filteredRecords.add(recordObj);
+            }
+        }
+
+        List<DependencyRecord> flattened = parseDependencyRecords(filteredRecords, trimmedName, refType);
 
         if (metadataType == 'Flow') {
             flattened.addAll(findSubflowUsages(componentName));

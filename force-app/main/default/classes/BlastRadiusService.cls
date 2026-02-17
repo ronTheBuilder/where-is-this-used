@@ -170,10 +170,9 @@ public with sharing class BlastRadiusService {
         context.apiCalls++;
 
         String soql =
-            'SELECT MetadataComponentId, MetadataComponentName, MetadataComponentType ' +
+            'SELECT MetadataComponentId, MetadataComponentName, MetadataComponentType, RefMetadataComponentName ' +
             'FROM MetadataComponentDependency ' +
-            'WHERE RefMetadataComponentName = \'' + String.escapeSingleQuotes(component.name) + '\' ' +
-            'AND RefMetadataComponentType = \'' + String.escapeSingleQuotes(component.type) + '\' ' +
+            'WHERE RefMetadataComponentType = \'' + String.escapeSingleQuotes(component.type) + '\' ' +
             'ORDER BY MetadataComponentType, MetadataComponentName';
 
         ToolingQueryResponse queryResponse = queryToolingRecords(soql);
@@ -182,6 +181,12 @@ public with sharing class BlastRadiusService {
         for (Object recordObj : queryResponse.records) {
             Map<String, Object> row = asMap(recordObj);
             if (row == null) {
+                continue;
+            }
+
+            // Client-side filter by name (RefMetadataComponentName not filterable in WHERE on all orgs)
+            String refName = String.valueOf(row.get('RefMetadataComponentName'));
+            if (refName == null || !refName.equalsIgnoreCase(component.name)) {
                 continue;
             }
 

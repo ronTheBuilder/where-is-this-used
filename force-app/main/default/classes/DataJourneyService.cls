@@ -448,10 +448,9 @@ public with sharing class DataJourneyService {
         String escapedField = String.escapeSingleQuotes(fullFieldName);
 
         String soql =
-            'SELECT MetadataComponentId, MetadataComponentName, MetadataComponentType, MetadataComponentNamespace ' +
+            'SELECT MetadataComponentId, MetadataComponentName, MetadataComponentType, MetadataComponentNamespace, RefMetadataComponentName ' +
             'FROM MetadataComponentDependency ' +
-            'WHERE RefMetadataComponentName = \'' + escapedField + '\' ' +
-            'AND RefMetadataComponentType = \'' + String.escapeSingleQuotes(refType) + '\' ' +
+            'WHERE RefMetadataComponentType = \'' + String.escapeSingleQuotes(refType) + '\' ' +
             'ORDER BY MetadataComponentType, MetadataComponentName';
 
         ToolingQueryResponse queryResponse = queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
@@ -460,6 +459,11 @@ public with sharing class DataJourneyService {
         for (Object recordObj : queryResponse.records) {
             Map<String, Object> row = asMap(recordObj);
             if (row == null) {
+                continue;
+            }
+            // Client-side filter by name
+            String refName = String.valueOf(row.get('RefMetadataComponentName'));
+            if (refName == null || !refName.equalsIgnoreCase(fullFieldName)) {
                 continue;
             }
 
