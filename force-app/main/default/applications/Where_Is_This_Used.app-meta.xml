@@ -1,9 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomApplication xmlns="http://soap.sforce.com/2006/04/metadata">
     <label>Where Is This Used?</label>
-    <formFactors>
-        <formFactor>Large</formFactor>
-    </formFactors>
     <navType>Standard</navType>
     <tabs>Where_Is_This_Used</tabs>
     <uiType>Lightning</uiType>

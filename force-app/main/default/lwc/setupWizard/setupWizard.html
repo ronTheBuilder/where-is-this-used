@@ -15,7 +15,7 @@
                         </p>
 
                         <!-- Test connection button for step 4 -->
-                        <template if:true={step.number === 4}>
+                        <template if:true={step.isTestStep}>
                             <div class="slds-m-top_medium">
                                 <lightning-button
                                     label={testButtonLabel}
