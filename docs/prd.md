@@ -378,7 +378,7 @@ Since MetadataComponentDependency does not track Flow→Flow subflow references:
 
 ### Design Reference
 
-See the interactive mockup at [`docs/design-mockup.html`](design-mockup.html) for the full visual design. Open in a browser to interact with it.
+See the interactive mockup at [`docs/delivered/design-mockup.html`](delivered/design-mockup.html) for the full visual design. Open in a browser to interact with it.
 
 ### Type-First Metadata Picker Flow
 

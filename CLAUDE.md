@@ -1,108 +1,104 @@
-# Where Is This Used? — Project Instructions
+# CLAUDE.md
 
-## What This Is
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-An open-source Salesforce app (free on AppExchange) that answers **"where is this used?"** for metadata types that Salesforce's native UI doesn't support — especially standard fields, flows/subflows, record types, and more.
+## Project Overview
 
-This fills a major gap: Salesforce's built-in "Where is this used?" button only works for custom fields and misses most metadata types. There's strong IdeaExchange demand for this.
+**Where Is This Used? (WITU)** — A free, open-source Salesforce app (LWC + Apex) that provides dependency analysis for metadata types Salesforce's native "Where is this used?" doesn't support. Distributed as a managed package on AppExchange, source on GitHub (MIT).
 
-## Project Status
+## Common Commands
 
-- **Phase**: Pre-development — architecture decided, design mockup complete, PRD not yet written
-- **Next step**: Create PRD in `docs/`, then begin building
+### Deploy to org (specific components only)
+```bash
+# Individual components
+sf project deploy start -m "ApexClass:DependencyService" -m "ApexClass:DependencyController"
 
-## Key Documents
-
-- `docs/discussion.md` — Full landscape research, API analysis, competitive analysis, architecture decisions (all open questions resolved)
-- `docs/design-mockup.html` — Interactive HTML mockup of the UI (open in browser to view); shows the type-first metadata picker, accordion results with badges, setup wizard, and the SLDS-faithful design
-
-## Decided Architecture
-
-### Delivery Format
-- **Native Salesforce app** (LWC + Apex) distributed as a **managed package** on AppExchange (free)
-- Source code open on GitHub (MIT license)
-
-### Technical Stack
-- **Frontend**: Lightning Web Components (LWC)
-- **Backend**: Apex controllers + service layer
-- **Data source**: Tooling API `MetadataComponentDependency` (queried via Apex HTTP callout)
-- **Auth**: Named Credential → Tooling API (requires one-time admin setup via a setup wizard)
-- **API Version**: 65.0
-
-### Core Architecture Pattern
-```
-LWC UI (thin) → Apex @AuraEnabled Controller → DependencyService → Tooling API callout
+# Entire directory
+sf project deploy start -d force-app/main/default/classes
 ```
 
-- `DependencyService` is the ONLY class that touches the Tooling API — everything else goes through it
-- This makes the data source swappable if the API changes
-- Real-time queries (no caching/indexing for v1)
+### Run tests
+```bash
+# All tests
+sf apex run test --code-coverage --result-format human
 
-### Package Structure
-```
-force-app/main/default/
-├── classes/
-│   ├── DependencyService.cls          ← core: queries MetadataComponentDependency via Tooling API
-│   ├── DependencyController.cls       ← @AuraEnabled methods for LWC
-│   ├── MetadataPickerController.cls   ← powers object/field/flow/class pickers
-│   ├── FlowParsingService.cls         ← supplemental: parses Flow metadata for subflow refs
-│   └── *Test.cls
-├── lwc/
-│   ├── dependencyFinder/              ← main container component
-│   ├── metadataPicker/                ← type → object → field picker
-│   ├── dependencyResults/             ← results display (accordion + badges)
-│   └── setupWizard/                   ← Named Credential setup guide
-├── tabs/
-│   └── Where_Is_This_Used.tab
-├── flexipages/
-│   └── Where_Is_This_Used_Page.flexipage
-├── permissionsets/
-│   └── Where_Is_This_Used_User.permissionset
-└── applications/
-    └── Where_Is_This_Used.app
+# Single test class
+sf apex run test --class-names DependencyServiceTest --result-format human
+
+# Single test method
+sf apex run test --tests DependencyServiceTest.testSearchDependencies --result-format human
 ```
 
-### v1 Scope (Metadata Types)
-1. **Standard Fields** — the #1 gap, use MetadataComponentDependency
-2. **Custom Fields** — same approach, with Read/Write badges for Apex
-3. **Flows** — "where is this flow used as a subflow?" (requires Flow metadata parsing)
-4. **Apex Classes** — which components reference this class
+### Validate deployment (dry run)
+```bash
+sf project deploy start -d force-app --dry-run --test-level RunLocalTests
+```
 
-### Key API Details
+## Architecture
 
-**MetadataComponentDependency** (Tooling API, Beta but stable since Summer '18):
-- 9 fields: MetadataComponentId/Name/Type/Namespace + RefMetadataComponentId/Name/Type/Namespace + Id
-- Query: `SELECT ... FROM MetadataComponentDependency WHERE RefMetadataComponentName = 'Account.Industry'`
-- Limits: 2,000 rows per Tooling API query, 100K via Bulk API 2.0
-- Blind spots: Reports excluded, Flow→Flow (subflow) refs not tracked, inconsistent for some types
-- Subflow workaround: Query FlowVersionView, retrieve Flow metadata, parse for `<subflow>` elements
+### Core Data Flow
+```
+LWC UI → Apex @AuraEnabled Controller → Service Layer → Tooling API (via Named Credential)
+```
 
-**Auth constraint**: `UserInfo.getSessionId()` does NOT work from Lightning context. Must use Named Credential (External Client App + Auth Provider + External Credential + Named Credential). The setup wizard LWC walks admins through this. See `docs/delivered/setup-guide.md` for the full setup guide.
+All Tooling API access goes through a single Named Credential: `callout:WITU_ToolingAPI`. The API endpoint base path is `/services/data/v65.0/tooling`.
 
-### API Fallback Strategy
-If Salesforce ever kills MetadataComponentDependency, the fallback is brute-force metadata parsing (query all Apex bodies, Flow metadata, VF markup, etc. and search for references). This is 100x more API calls and would need async processing. The `DependencyService` abstraction is designed so only that one class would need to change.
+### Feature Modules
 
-## Design Decisions Made
+The app has four distinct features, each following the same Controller → Service pattern:
 
-| Decision | Choice | Rationale |
-|---|---|---|
-| Build new vs contribute to HappySoup | Build new | Native SF app (LWC) vs HappySoup's external web app |
-| Auth approach | Named Credential + setup wizard | Safest for AppExchange security review |
-| Data strategy | Real-time queries | Simpler for v1, no storage overhead |
-| Metadata picker UX | Type-first picker | Extensible, clear what's supported per type |
-| API blind spots | API + targeted Flow parsing | Best coverage without over-engineering |
+| Feature | Controller | Service | LWC | Purpose |
+|---|---|---|---|---|
+| **Dependency Finder** | `DependencyController` | `DependencyService` | `dependencyFinder`, `metadataPicker`, `dependencyResults` | Core "where is this used?" query |
+| **Blast Radius** | `BlastRadiusController` | `BlastRadiusService` | `blastRadiusGraph` | Recursive dependency graph traversal |
+| **Data Journey** | `DataJourneyController` | `DataJourneyService` | `dataJourneyView` | Traces field read/write chains across automations |
+| **Process Flow Map** | `ProcessFlowController` | `ProcessFlowService` | `processFlowMap` | Shows automation execution order for an object |
 
-## Existing Landscape (for context)
+Supporting classes:
+- `FlowFieldAnalyzer` — Parses Flow metadata JSON to extract field reads, writes, and subflow calls. Used by `DataJourneyService` and `DependencyService`.
+- `MetadataPickerController` — Powers object/field/flow/class picker dropdowns. Uses `Schema.getGlobalDescribe()` for objects/fields, delegates to `DependencyService` for flows and Apex classes.
 
-- **HappySoup.io** / sfdc-soup — MIT, free web app, last active ~2023, good but external-only
-- **forcedotcom/dependencies-cli** — Archived May 2025, dead
-- **Salto** — Commercial, paid, does this well but not open source
-- **afawcett/dependencies-sample** — Reference for which API relationships actually work
+### Key Patterns
+
+**Tooling API querying**: Each service class has its own `queryToolingRecords()`, `sendGet()`, and `resolveEndpoint()` methods (duplicated across services, not shared). All use the same `callout:WITU_ToolingAPI` Named Credential and the same HTTP callout pattern.
+
+**Client-side filtering**: `RefMetadataComponentName` is not filterable in `WHERE` clauses on all orgs. The pattern is: query by `RefMetadataComponentType` only, then filter by name in Apex. This applies in `DependencyService`, `BlastRadiusService`, and `DataJourneyService`.
+
+**Security gate**: Every service enforces `FeatureManagement.checkPermission('WITU_Access')` before any operation. The custom permission is included in the `Where_Is_This_Used_User` permission set.
+
+**Input validation**: Component names are validated against `Pattern.compile('^[a-zA-Z][a-zA-Z0-9_.]*$')` with max length 255.
+
+**Test pattern**: Tests use `HttpCalloutMock` implementations as inner classes. Example: `Test.setMock(HttpCalloutMock.class, new ControllerMock())`.
+
+### LWC Structure
+
+- `dependencyFinder` — Main container with tab navigation (Finder, Setup, Blast Radius)
+- `metadataPicker` — Type-first metadata picker (Standard Field, Custom Field, Flow, Apex Class)
+- `dependencyResults` — Accordion results display with badges
+- `blastRadiusGraph` — SVG-rendered dependency graph (uses `lwc:dom="manual"` for SVG manipulation)
+- `dataJourneyView` — SVG-rendered upstream/downstream field data flow
+- `processFlowMap` — Automation execution order timeline
+- `setupWizard` — Named Credential setup walkthrough
+
+### API Details
+
+**MetadataComponentDependency** (Tooling API): 2,000 row limit per query. Key fields: `MetadataComponentId/Name/Type/Namespace` + `RefMetadataComponentId/Name/Type/Namespace`.
+
+**Subflow detection**: Tooling API doesn't track Flow→Flow (subflow) references. Workaround: query `FlowVersionView` for active flows, retrieve each flow's `/sobjects/Flow/{id}` metadata, parse for `flowName` keys.
+
+**API version**: 65.0 (set in `sfdx-project.json` and hardcoded in service classes).
 
 ## Development Guidelines
 
-- Follow SLDS design patterns — the app should feel native to Salesforce
-- AppExchange security review requirements: CRUD/FLS checks, no SOQL injection, no hardcoded credentials, proper sharing (`with sharing` keyword)
-- All Apex must have test classes with 75%+ coverage (AppExchange requirement)
-- Use `@AuraEnabled(cacheable=true)` where appropriate for read-only methods
-- The Named Credential name used in callouts: `WITU_ToolingAPI`
+- All Apex classes use `with sharing`
+- AppExchange security review: CRUD/FLS checks required, no SOQL injection, 75%+ test coverage
+- Use `@AuraEnabled(cacheable=true)` for read-only methods
+- Follow SLDS design patterns
+- SVG in LWC requires `lwc:dom="manual"` — cannot use template binding for SVG elements
+
+## Key Documents
+
+- `docs/prd.md` — Product Requirements Document
+- `docs/delivered/setup-guide.md` — Named Credential setup (External Client App approach)
+- `docs/delivered/discussion.md` — Architecture decisions and API research
+- `docs/delivered/design-mockup.html` — Interactive UI mockup (open in browser)

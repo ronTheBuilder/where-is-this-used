@@ -236,5 +236,5 @@ If Salesforce ever kills MetadataComponentDependency, the fallback is brute-forc
 - [x] Define target audience and delivery format → **Admins + devs, LWC managed package**
 - [x] Scope v1 feature set → **Standard Fields, Custom Fields, Flows, Apex Classes**
 - [x] Design mockup → **Created: `docs/design-mockup.html`**
-- [ ] Create a PRD in `docs/`
+- [x] Create a PRD in `docs/` → **Created: `docs/prd.md`**
 - [ ] Begin building
