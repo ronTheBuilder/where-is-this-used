@@ -166,7 +166,7 @@ private with sharing class BlastRadiusServiceTest {
             return response;
         }
 
-        private static String decodeSoql(String endpoint) {
+        private String decodeSoql(String endpoint) {
             Integer qStart = endpoint.indexOf('?q=');
             if (qStart < 0) {
                 return '';
@@ -192,7 +192,7 @@ private with sharing class BlastRadiusServiceTest {
             return '{"done":true,"totalSize":0,"records":[]}';
         }
 
-        private static String basicResponse(String soql) {
+        private String basicResponse(String soql) {
             if (soql.contains('RefMetadataComponentName = \'Account.MyField__c\'') && soql.contains('RefMetadataComponentType = \'CustomField\'')) {
                 return '{"done":true,"totalSize":2,"records":[' +
                     '{"MetadataComponentId":"301A","MetadataComponentName":"FlowUsage","MetadataComponentType":"Flow"},' +
@@ -207,7 +207,7 @@ private with sharing class BlastRadiusServiceTest {
             return '{"done":true,"totalSize":0,"records":[]}';
         }
 
-        private static String cycleResponse(String soql) {
+        private String cycleResponse(String soql) {
             if (soql.contains('RefMetadataComponentName = \'CycleRoot\'')) {
                 return '{"done":true,"totalSize":1,"records":[' +
                     '{"MetadataComponentId":"301CC","MetadataComponentName":"CycleChild","MetadataComponentType":"Flow"}' +
@@ -221,7 +221,7 @@ private with sharing class BlastRadiusServiceTest {
             return '{"done":true,"totalSize":0,"records":[]}';
         }
 
-        private static String depthResponse(String soql) {
+        private String depthResponse(String soql) {
             if (soql.contains('RefMetadataComponentName = \'DepthRoot\'')) {
                 return '{"done":true,"totalSize":1,"records":[' +
                     '{"MetadataComponentId":"301D1","MetadataComponentName":"DepthL1","MetadataComponentType":"Flow"}' +
@@ -240,7 +240,7 @@ private with sharing class BlastRadiusServiceTest {
             return '{"done":true,"totalSize":0,"records":[]}';
         }
 
-        private static String nodeCapResponse(String soql) {
+        private String nodeCapResponse(String soql) {
             if (!soql.contains('RefMetadataComponentName = \'NodeCapRoot\'')) {
                 return '{"done":true,"totalSize":0,"records":[]}';
             }

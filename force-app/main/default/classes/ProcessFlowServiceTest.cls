@@ -147,7 +147,7 @@ private with sharing class ProcessFlowServiceTest {
             return response;
         }
 
-        private static String decodeSoql(String endpoint) {
+        private String decodeSoql(String endpoint) {
             Integer qStart = endpoint.indexOf('?q=');
             if (qStart < 0) {
                 return '';
@@ -156,7 +156,7 @@ private with sharing class ProcessFlowServiceTest {
             return EncodingUtil.urlDecode(encoded, 'UTF-8');
         }
 
-        private static String buildQueryResponse(String soql) {
+        private String buildQueryResponse(String soql) {
             if (soql.contains('FROM ApexTrigger')) {
                 return '{"done":true,"totalSize":1,"records":[{"Id":"01qA","Name":"AccountTrigger","TableEnumOrId":"Account","UsageBeforeInsert":true,"UsageAfterInsert":true,"UsageBeforeUpdate":true,"UsageAfterUpdate":true,"UsageBeforeDelete":true,"UsageAfterDelete":true,"UsageAfterUndelete":false,"Status":"Active"}]}';
             }

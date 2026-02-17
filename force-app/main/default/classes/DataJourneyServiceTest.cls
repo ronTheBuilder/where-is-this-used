@@ -102,7 +102,7 @@ private with sharing class DataJourneyServiceTest {
             return response;
         }
 
-        private static String decodeSoql(String endpoint) {
+        private String decodeSoql(String endpoint) {
             Integer start = endpoint.indexOf('?q=');
             if (start < 0) {
                 return '';
@@ -110,7 +110,7 @@ private with sharing class DataJourneyServiceTest {
             return EncodingUtil.urlDecode(endpoint.substring(start + 3), 'UTF-8');
         }
 
-        private static String queryResponseFor(String soql) {
+        private String queryResponseFor(String soql) {
             if (soql.contains('FROM FlowVersionView')) {
                 return '{"done":true,"totalSize":3,"records":[' +
                     '{"Id":"F1","FlowDefinitionView":{"ApiName":"Territory_Assignment_Flow","Label":"Territory Assignment"}},' +
@@ -157,7 +157,7 @@ private with sharing class DataJourneyServiceTest {
             return '{"done":true,"totalSize":0,"records":[]}';
         }
 
-        private static String flowMetadataFor(String endpoint) {
+        private String flowMetadataFor(String endpoint) {
             if (endpoint.contains('/sobjects/Flow/F1')) {
                 return '{"Metadata":{' +
                     '"decisions":[{"rules":[{"conditions":[{"leftValueReference":"$Record.Region__c","operator":"EqualTo","rightValue":{"stringValue":"EMEA"}}]}]}],' +
