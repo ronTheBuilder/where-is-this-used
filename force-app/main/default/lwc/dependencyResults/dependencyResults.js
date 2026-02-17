@@ -69,6 +69,7 @@ export default class DependencyResults extends LightningElement {
             .map(g => ({
                 ...g,
                 isExpanded: this.expandedGroups[g.componentType] !== false,
+                chevronIcon: this.expandedGroups[g.componentType] !== false ? 'utility:chevrondown' : 'utility:chevronright',
                 iconName: TYPE_ICONS[g.componentType] || 'standard:default',
                 records: g.records.map(r => ({
                     ...r,
