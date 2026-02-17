@@ -98,4 +98,15 @@ export default class DependencyResults extends LightningElement {
             window.open(url, '_blank');
         }
     }
+
+    handleShowBlastRadius() {
+        this.dispatchEvent(new CustomEvent('blastradius', {
+            detail: {
+                metadataType: this.metadataType,
+                componentName: this.componentName
+            },
+            bubbles: true,
+            composed: true
+        }));
+    }
 }

@@ -1,0 +1,86 @@
+:host {
+    display: block;
+}
+
+.blast-radius-root {
+    width: 100%;
+}
+
+.controls-bar {
+    gap: 0.5rem;
+}
+
+.graph-viewport {
+    min-height: 400px;
+    overflow: auto;
+    background: linear-gradient(180deg, #ffffff 0%, #f8f8f8 100%);
+}
+
+.graph-svg {
+    width: 100%;
+}
+
+.edge {
+    fill: none;
+    stroke: #c9c7c5;
+    stroke-width: 1.5;
+}
+
+.edge.selected {
+    stroke: #1b96ff;
+    stroke-width: 2.5;
+}
+
+.node {
+    stroke: #ffffff;
+    stroke-width: 2;
+    cursor: pointer;
+    transition: transform 120ms ease-in-out;
+}
+
+.node:hover {
+    filter: brightness(1.08);
+}
+
+.node.selected {
+    stroke: #0b5cab;
+    stroke-width: 3;
+}
+
+.node-label {
+    fill: #1b1a18;
+    font-size: 11px;
+    pointer-events: none;
+}
+
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+}
+
+.legend-color {
+    display: inline-block;
+    width: 0.85rem;
+    height: 0.85rem;
+    border-radius: 50%;
+}
+
+.stats-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    font-size: 0.8rem;
+    color: #3e3e3c;
+}
+
+.graph-placeholder {
+    min-height: 400px;
+}

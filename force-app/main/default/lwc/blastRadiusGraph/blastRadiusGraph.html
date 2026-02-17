@@ -1,0 +1,103 @@
+<template>
+    <div class="blast-radius-root">
+        <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-bottom_small">
+            <div class="slds-grid slds-grid_vertical-align-center">
+                <lightning-button-icon
+                    icon-name="utility:back"
+                    alternative-text="Back to results"
+                    title="Back to results"
+                    onclick={handleBack}
+                    class="slds-m-right_small">
+                </lightning-button-icon>
+                <h2 class="slds-text-heading_small">Blast Radius: {componentName}</h2>
+            </div>
+        </div>
+
+        <div class="slds-grid slds-wrap slds-grid_align-spread slds-m-bottom_small controls-bar">
+            <div class="slds-button-group" role="group" aria-label="Depth">
+                <template for:each={depthButtons} for:item="depth">
+                    <lightning-button
+                        key={depth.value}
+                        label={depth.value}
+                        variant={depth.variant}
+                        data-depth={depth.value}
+                        onclick={handleDepthClick}>
+                    </lightning-button>
+                </template>
+            </div>
+            <div class="slds-grid slds-gutters_x-small">
+                <lightning-button label="Zoom Fit" onclick={handleZoomFit}></lightning-button>
+                <lightning-button-menu alternative-text="Export" onselect={handleExportSelect}>
+                    <lightning-menu-item value="mermaid" label="Copy as Mermaid"></lightning-menu-item>
+                    <lightning-menu-item value="svg" label="Download SVG"></lightning-menu-item>
+                </lightning-button-menu>
+            </div>
+        </div>
+
+        <template if:true={isLoading}>
+            <div class="slds-align_absolute-center graph-placeholder">
+                <lightning-spinner alternative-text="Loading blast radius" size="medium"></lightning-spinner>
+            </div>
+        </template>
+
+        <template if:true={error}>
+            <div class="slds-notify slds-notify_alert slds-alert_error slds-m-bottom_small" role="alert">
+                <span class="slds-assistive-text">error</span>
+                <h2>{error}</h2>
+            </div>
+        </template>
+
+        <template if:true={warningMessage}>
+            <div class="slds-notify slds-notify_alert slds-alert_warning slds-m-bottom_small" role="alert">
+                <span class="slds-assistive-text">warning</span>
+                <h2>{warningMessage}</h2>
+            </div>
+        </template>
+
+        <template if:true={showEmptyState}>
+            <div class="slds-box slds-theme_default slds-text-color_weak">
+                No dependencies were found for this component at depth {maxDepth}.
+            </div>
+        </template>
+
+        <template if:true={hasData}>
+            <div class="graph-viewport slds-box slds-m-bottom_small">
+                <svg class="graph-svg" preserveAspectRatio="xMinYMin meet">
+                    <g class="graph-content"></g>
+                </svg>
+            </div>
+
+            <div class="slds-box slds-m-bottom_small">
+                <template if:true={selectedNode}>
+                    <h3 class="slds-text-title_bold slds-m-bottom_x-small">{selectedNode.name}</h3>
+                    <p class="slds-text-body_small slds-m-bottom_xx-small">Type: {selectedNodeType}</p>
+                    <p class="slds-text-body_small slds-m-bottom_x-small">Depth: {selectedNodeDepth}</p>
+                    <template if:true={selectedNodeSetupUrl}>
+                        <lightning-button
+                            label="Open in Setup"
+                            icon-name="utility:new_window"
+                            onclick={handleOpenSetup}
+                            variant="base">
+                        </lightning-button>
+                    </template>
+                </template>
+            </div>
+
+            <div class="legend slds-m-bottom_small">
+                <template for:each={legendItems} for:item="item">
+                    <div key={item.label} class="legend-item">
+                        <span class="legend-color" style={item.style}></span>
+                        <span>{item.label}</span>
+                    </div>
+                </template>
+            </div>
+
+            <div class="stats-bar slds-box slds-theme_default">
+                <span>{statNodes} nodes</span>
+                <span>{statEdges} edges</span>
+                <span>depth {statDepth}</span>
+                <span>{statCycles} cycles</span>
+            </div>
+        </template>
+    </div>
+</template>

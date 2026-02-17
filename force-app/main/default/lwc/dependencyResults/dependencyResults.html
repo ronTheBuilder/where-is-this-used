@@ -21,6 +21,12 @@
             <strong>{totalCount}</strong> references found
             <span class="slds-text-body_small slds-text-color_weak slds-m-left_xx-small">across {groupCount} metadata types</span>
         </h2>
+        <lightning-button
+            label="Show Blast Radius"
+            variant="brand-outline"
+            icon-name="utility:graph"
+            onclick={handleShowBlastRadius}>
+        </lightning-button>
     </div>
 
     <!-- Filter badges -->

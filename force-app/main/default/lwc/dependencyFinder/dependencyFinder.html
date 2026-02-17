@@ -17,6 +17,11 @@
                         Setup
                     </a>
                 </li>
+                <li class={blastRadiusTabClass} role="presentation">
+                    <a role="tab" tabindex="0" data-tab="blastRadius" onclick={handleTabClick}>
+                        Blast Radius
+                    </a>
+                </li>
             </ul>
 
             <!-- Finder tab -->
@@ -46,6 +51,7 @@
                     <template if:true={hasResults}>
                         <c-dependency-results
                             search-response={searchResponse}
+                            onblastradius={handleBlastRadius}
                             class="slds-m-top_medium">
                         </c-dependency-results>
                     </template>
@@ -71,6 +77,24 @@
             <template if:true={isSetupTab}>
                 <div class="slds-tabs_default__content slds-show" role="tabpanel">
                     <c-setup-wizard></c-setup-wizard>
+                </div>
+            </template>
+
+            <!-- Blast Radius tab -->
+            <template if:true={isBlastRadiusTab}>
+                <div class="slds-tabs_default__content slds-show" role="tabpanel">
+                    <template if:true={hasBlastContext}>
+                        <c-blast-radius-graph
+                            metadata-type={blastMetadataType}
+                            component-name={blastComponentName}
+                            onback={handleBlastBack}>
+                        </c-blast-radius-graph>
+                    </template>
+                    <template if:false={hasBlastContext}>
+                        <div class="slds-text-body_regular slds-text-color_weak slds-p-around_medium">
+                            Search dependencies first, then click Show Blast Radius.
+                        </div>
+                    </template>
                 </div>
             </template>
         </div>
