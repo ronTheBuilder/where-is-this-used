@@ -8,7 +8,7 @@
 
         <lightning-accordion allow-multiple-sections-open active-section-name="step-4">
             <template for:each={steps} for:item="step">
-                <lightning-accordion-section key={step.number} name={"step-" + step.number} label={step.title}>
+                <lightning-accordion-section key={step.number} name={step.sectionName} label={step.title}>
                     <div class="slds-p-horizontal_medium slds-p-bottom_medium">
                         <p class="slds-text-body_regular slds-text-color_weak slds-m-bottom_small">
                             {step.description}
