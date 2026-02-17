@@ -1,0 +1,216 @@
+:host {
+    display: block;
+}
+
+.journey-shell {
+    border: 1px solid #d8dde6;
+    background: #f8fafc;
+}
+
+.header-row {
+    border-bottom: 1px solid #d8dde6;
+    background: #ffffff;
+}
+
+.toolbar {
+    border-bottom: 1px solid #d8dde6;
+    background: #f4f6f9;
+    gap: 0.5rem;
+}
+
+.depth-picklist {
+    min-width: 7rem;
+}
+
+.stat-pill {
+    background: #ffffff;
+    border: 1px solid #c9cfd6;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+    padding: 0.1rem 0.55rem;
+}
+
+.legend-item {
+    align-items: center;
+    display: inline-flex;
+    font-size: 0.75rem;
+    gap: 0.25rem;
+    white-space: nowrap;
+}
+
+.legend-dot {
+    border-radius: 50%;
+    display: inline-block;
+    height: 0.6rem;
+    width: 0.6rem;
+}
+
+.legend-dot.field {
+    background: #1b96ff;
+}
+
+.legend-dot.flow {
+    background: #9050e9;
+}
+
+.legend-dot.apex {
+    background: #04844b;
+}
+
+.legend-dot.vr {
+    background: #fe5c4c;
+}
+
+.legend-dot.formula {
+    background: #0d9dda;
+}
+
+.legend-dot.workflow {
+    background: #fe9339;
+}
+
+.journey-canvas {
+    position: relative;
+    width: 100%;
+}
+
+.journey-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1fr minmax(220px, 1.1fr) 1fr;
+    padding: 1rem;
+    position: relative;
+    z-index: 2;
+}
+
+.journey-column {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.root-column {
+    justify-content: center;
+}
+
+.column-title {
+    color: #032d60;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.015rem;
+    text-transform: uppercase;
+}
+
+.node-card {
+    align-items: center;
+    background: #ffffff;
+    border: 1px solid #c9cfd6;
+    border-radius: 0.6rem;
+    cursor: pointer;
+    display: flex;
+    gap: 0.5rem;
+    min-height: 3.25rem;
+    padding: 0.55rem 0.6rem;
+    text-align: left;
+    width: 100%;
+}
+
+.node-card:hover {
+    border-color: #1b96ff;
+    box-shadow: 0 0 0 1px rgba(27, 150, 255, 0.25);
+}
+
+.node-selected {
+    border-color: #0176d3;
+    box-shadow: 0 0 0 2px rgba(1, 118, 211, 0.25);
+}
+
+.node-icon {
+    border-radius: 50%;
+    display: inline-block;
+    flex: 0 0 0.75rem;
+    height: 0.75rem;
+}
+
+.node-icon.large {
+    flex-basis: 0.95rem;
+    height: 0.95rem;
+}
+
+.node-name {
+    color: #032d60;
+    flex: 1;
+    font-size: 0.82rem;
+    line-height: 1.2rem;
+}
+
+.root-name {
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.relation {
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 0.1rem 0.45rem;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.relation-read {
+    background: #e8f3ff;
+    color: #0b5cab;
+}
+
+.relation-write {
+    background: #fff1eb;
+    color: #ba0517;
+}
+
+.connector-layer {
+    height: 100%;
+    left: 0;
+    pointer-events: none;
+    position: absolute;
+    top: 0;
+    width: 100%;
+    z-index: 1;
+}
+
+.connector-path {
+    fill: none;
+    stroke: #8fa7bf;
+    stroke-width: 2;
+}
+
+.arrow-fill {
+    fill: #8fa7bf;
+}
+
+.detail-panel {
+    background: #ffffff;
+    border: 1px solid #d8dde6;
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+}
+
+.spinner-wrap {
+    border-top: 1px solid #d8dde6;
+    min-height: 5rem;
+    position: relative;
+}
+
+@media (max-width: 900px) {
+    .journey-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .root-column {
+        order: -1;
+    }
+
+    .connector-layer {
+        display: none;
+    }
+}
