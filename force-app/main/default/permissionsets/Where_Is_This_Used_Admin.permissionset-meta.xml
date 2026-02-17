@@ -22,9 +22,5 @@
         <tab>Where_Is_This_Used</tab>
         <visibility>Visible</visibility>
     </tabSettings>
-    <userPermissions>
-        <enabled>true</enabled>
-        <name>ViewSetup</name>
-    </userPermissions>
     <hasActivationRequired>false</hasActivationRequired>
 </PermissionSet>
