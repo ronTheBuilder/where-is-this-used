@@ -2,11 +2,11 @@
     <div class="slds-setup-assistant">
         <div class="slds-box slds-box_x-small slds-theme_info slds-m-bottom_medium">
             <p class="slds-text-body_small">
-                <strong>One-time setup required.</strong> Where Is This Used? needs a Named Credential to securely call the Tooling API within your org. Follow the steps below — this only takes a few minutes.
+                <strong>One-time setup required.</strong> Where Is This Used? needs an External Client App, External Credential, and Named Credential to securely call the Tooling API within your org. Follow the 6 steps below — this only takes a few minutes.
             </p>
         </div>
 
-        <lightning-accordion allow-multiple-sections-open active-section-name="step-4">
+        <lightning-accordion allow-multiple-sections-open active-section-name="step-6">
             <template for:each={steps} for:item="step">
                 <lightning-accordion-section key={step.number} name={step.sectionName} label={step.title}>
                     <div class="slds-p-horizontal_medium slds-p-bottom_medium">

@@ -77,7 +77,7 @@ force-app/main/default/
 - Blind spots: Reports excluded, Flow→Flow (subflow) refs not tracked, inconsistent for some types
 - Subflow workaround: Query FlowVersionView, retrieve Flow metadata, parse for `<subflow>` elements
 
-**Auth constraint**: `UserInfo.getSessionId()` does NOT work from Lightning context. Must use Named Credential (Connected App + Auth Provider + Named Credential). The setup wizard LWC walks admins through this.
+**Auth constraint**: `UserInfo.getSessionId()` does NOT work from Lightning context. Must use Named Credential (External Client App + Auth Provider + External Credential + Named Credential). The setup wizard LWC walks admins through this. See `docs/delivered/setup-guide.md` for the full setup guide.
 
 ### API Fallback Strategy
 If Salesforce ever kills MetadataComponentDependency, the fallback is brute-force metadata parsing (query all Apex bodies, Flow metadata, VF markup, etc. and search for references). This is 100x more API calls and would need async processing. The `DependencyService` abstraction is designed so only that one class would need to change.

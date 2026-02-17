@@ -169,7 +169,7 @@ These gaps have been highly requested on the Salesforce IdeaExchange for years:
 | FR-006 | Display results grouped by dependent component type in collapsible accordions | P1 | US-A05 |
 | FR-007 | Show summary badges with count per component type | P1 | US-R02 |
 | FR-008 | Show Read/Write badges for Apex references to fields | P1 | US-D02 |
-| FR-009 | Provide a 4-step setup wizard for Named Credential configuration | P0 | US-A04 |
+| FR-009 | Provide a 6-step setup wizard for External Client App, External Credential, and Named Credential configuration | P0 | US-A04 |
 | FR-010 | Include a "Test Connection" button in the setup wizard | P0 | US-A04 |
 | FR-011 | Display an empty state when no dependencies are found | P1 | US-A06 |
 | FR-012 | Handle and display errors gracefully (API failures, auth issues, limits) | P0 | All |
@@ -285,14 +285,15 @@ sequenceDiagram
 
 ### Authentication
 
-The app queries the Tooling API via HTTP callout because `UserInfo.getSessionId()` does not work in Lightning context (Salesforce security policy). The required setup:
+The app queries the Tooling API via HTTP callout because `UserInfo.getSessionId()` does not work in Lightning context (Salesforce security policy). The required setup uses the modern **External Client App** approach (Connected Apps are being phased out as of Spring '26):
 
-1. **Connected App** — OAuth 2.0 with `api` and `refresh_token` scopes
-2. **Auth Provider** — Salesforce type, referencing the Connected App
-3. **Named Credential** — `WITU_ToolingAPI`, pointing to the org's own Tooling API endpoint, using the Auth Provider
-4. **Permission Set** — grants access to the Named Credential and app tab
+1. **External Client App** — OAuth application (replaces Connected App) with `api` and `refresh_token` scopes
+2. **Auth Provider** — Salesforce type, referencing the External Client App
+3. **External Credential** — stores the authenticated session; create a Principal and authenticate
+4. **Named Credential** — `WITU_ToolingAPI`, pointing to the org's own Tooling API endpoint, using the External Credential
+5. **Permission Set** — grants External Credential Principal Access to users who run the app
 
-The setup wizard LWC guides admins through all 4 steps with copy-paste values and a test connection button.
+The setup wizard LWC guides admins through all 6 steps. See `docs/delivered/setup-guide.md` for the full guide with troubleshooting.
 
 ### Package Structure
 
@@ -437,14 +438,16 @@ Results are displayed in collapsible SLDS accordion sections, one per dependent 
 
 ### Setup Wizard Flow
 
-The setup wizard is a 4-step guided process shown when the Named Credential is not configured:
+The setup wizard is a 6-step guided process shown when the Named Credential is not configured:
 
 | Step | Title | What the user does |
 |------|-------|--------------------|
-| 1 | Create Connected App | Copy-paste provided values into Setup → App Manager → New Connected App |
-| 2 | Create Auth Provider | Copy-paste values into Setup → Auth. Providers → New |
-| 3 | Create Named Credential | Copy-paste values into Setup → Named Credentials → New |
-| 4 | Test Connection | Click "Test Connection" button → success or error message |
+| 1 | Create External Client App | Setup → Apps → External Client App Manager → New; enable OAuth, copy Consumer Key/Secret |
+| 2 | Create Auth Provider | Setup → Identity → Auth. Providers → New; paste credentials, copy Callback URL back to External Client App |
+| 3 | Create External Credential | Setup → Named Credentials → External Credentials tab → New; create Principal, authenticate |
+| 4 | Create Named Credential | Setup → Named Credentials → New; use `WITU_ToolingAPI`, select External Credential |
+| 5 | Grant Permission Set Access | Edit permission set → External Credential Principal Access → enable Principal; assign to users |
+| 6 | Test Connection | Click "Test Connection" button → success or error message |
 
 Each step includes:
 - Step indicator (1/4, 2/4, etc.)
@@ -537,7 +540,7 @@ The `Where_Is_This_Used_User` permission set grants:
 - Access to the `Where Is This Used` tab
 - Access to the `Where Is This Used` app
 - Access to all Apex classes in the package
-- Access to the `WITU_ToolingAPI` Named Credential (External Credential)
+- External Credential Principal Access (admin enables the Principal in the permission set during setup)
 
 Admins assign this permission set to users who need the tool.
 
@@ -555,7 +558,7 @@ Admins assign this permission set to users who need the tool.
 | Custom Field dependencies | With Read/Write badges for Apex |
 | Flow subflow detection | FlowParsingService + MetadataComponentDependency |
 | Apex Class dependencies | Full MetadataComponentDependency query |
-| Setup wizard | 4-step guided Named Credential setup |
+| Setup wizard | 6-step guided External Client App + External Credential + Named Credential setup |
 | Type-first metadata picker | Dropdown → type-specific sub-picker |
 | Accordion results display | Grouped by type, summary badges |
 | Error handling | Auth errors, API errors, limit warnings |
@@ -656,7 +659,8 @@ where-is-this-used/
 │   ├── prd.md                    ← This document
 │   ├── discussion.md             ← Research & decisions
 │   ├── design-mockup.html        ← Interactive UI mockup
-│   ├── setup-guide.md            ← Admin setup instructions
+│   ├── delivered/
+│   │   └── setup-guide.md        ← Admin setup instructions (delivered as-is)
 │   └── troubleshooting.md        ← Common issues & fixes
 ├── scripts/                      ← Build/deploy scripts
 ├── sfdx-project.json
@@ -686,7 +690,7 @@ where-is-this-used/
 | Document | Audience | Contents |
 |----------|----------|----------|
 | **README.md** | All | Overview, install link, quick start, screenshots, contributing |
-| **Setup Guide** | Admins | Step-by-step Named Credential setup with screenshots |
+| **Setup Guide** | Admins | Step-by-step External Client App, External Credential, and Named Credential setup with troubleshooting |
 | **Troubleshooting** | All | Common errors, auth issues, API limits, FAQ |
 | **CONTRIBUTING.md** | Developers | Dev setup, scratch org instructions, PR guidelines |
 | **CHANGELOG.md** | All | Version history, what's new |
