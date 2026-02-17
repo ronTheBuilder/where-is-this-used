@@ -51,12 +51,13 @@ export default class DependencyResults extends LightningElement {
 
     get filterBadges() {
         const groups = this.searchResponse?.groups || [];
-        const all = { label: 'All', value: 'all', count: this.totalCount, isActive: this.activeFilter === 'all' };
+        const all = { label: 'All', value: 'all', count: this.totalCount, isActive: this.activeFilter === 'all', badgeClass: this.activeFilter === 'all' ? 'slds-m-right_xx-small slds-badge_inverse' : 'slds-m-right_xx-small' };
         const typeBadges = groups.map(g => ({
             label: g.componentType,
             value: g.componentType,
             count: g.count,
-            isActive: this.activeFilter === g.componentType
+            isActive: this.activeFilter === g.componentType,
+            badgeClass: this.activeFilter === g.componentType ? 'slds-m-right_xx-small slds-badge_inverse' : 'slds-m-right_xx-small'
         }));
         return [all, ...typeBadges];
     }
@@ -68,6 +69,7 @@ export default class DependencyResults extends LightningElement {
             .map(g => ({
                 ...g,
                 isExpanded: this.expandedGroups[g.componentType] !== false,
+                chevronIcon: this.expandedGroups[g.componentType] !== false ? 'utility:chevrondown' : 'utility:chevronright',
                 iconName: TYPE_ICONS[g.componentType] || 'standard:default',
                 records: g.records.map(r => ({
                     ...r,

@@ -364,11 +364,11 @@ public with sharing class DependencyService {
 
         List<DependencyGroup> result = new List<DependencyGroup>();
         for (String type : types) {
-            DependencyGroup group = new DependencyGroup();
-            group.componentType = type;
-            group.records = grouped.get(type);
-            group.count = group.records.size();
-            result.add(group);
+            DependencyGroup grp = new DependencyGroup();
+            grp.componentType = type;
+            grp.records = grouped.get(type);
+            grp.count = grp.records.size();
+            result.add(grp);
         }
         return result;
     }

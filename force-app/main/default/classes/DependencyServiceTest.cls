@@ -45,8 +45,8 @@ private with sharing class DependencyServiceTest {
         Test.stopTest();
 
         Boolean foundSubflow = false;
-        for (DependencyService.DependencyGroup group : response.groups) {
-            for (DependencyService.DependencyRecord record : group.records) {
+        for (DependencyService.DependencyGroup grp : response.groups) {
+            for (DependencyService.DependencyRecord record : grp.records) {
                 if (record.isSubflowReference == true && record.metadataComponentName == 'Parent One') {
                     foundSubflow = true;
                 }
@@ -91,7 +91,7 @@ private with sharing class DependencyServiceTest {
             return response;
         }
 
-        private static String decodeSoql(String endpoint) {
+        private String decodeSoql(String endpoint) {
             Integer qStart = endpoint.indexOf('?q=');
             if (qStart < 0) {
                 return '';
@@ -100,7 +100,7 @@ private with sharing class DependencyServiceTest {
             return EncodingUtil.urlDecode(encoded, 'UTF-8');
         }
 
-        private static String buildQueryResponse(String soql) {
+        private String buildQueryResponse(String soql) {
             if (soql.contains('FROM Organization')) {
                 return '{"done":true,"totalSize":1,"records":[{"Id":"00Dxx0000000001"}]}';
             }

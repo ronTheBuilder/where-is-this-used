@@ -9,21 +9,28 @@ export default class SetupWizard extends LightningElement {
         return [
             {
                 number: 1,
+                isTestStep: false,
+                sectionName: 'step-1',
                 title: 'Create Connected App',
                 description: 'Go to Setup → App Manager → New Connected App. Enable OAuth with callback URL https://login.salesforce.com/services/oauth2/callback. Add scopes: "Full access (full)" and "Perform requests at any time (refresh_token)". Copy the Consumer Key and Consumer Secret.'
             },
             {
                 number: 2,
+                isTestStep: false,
+                sectionName: 'step-2',
                 title: 'Create Auth. Provider',
                 description: 'Go to Setup → Auth. Providers → New. Provider Type: Salesforce. Name: WITU Auth Provider. Paste Consumer Key and Consumer Secret. Default Scopes: full refresh_token.'
             },
             {
                 number: 3,
+                isTestStep: false,
+                sectionName: 'step-3',
                 title: 'Create Named Credential',
                 description: 'Go to Setup → Named Credentials → New Legacy. Label: WITU_ToolingAPI. URL: https://[your-domain].my.salesforce.com. Identity Type: Named Principal. Authentication Protocol: OAuth 2.0. Authentication Provider: WITU Auth Provider. Check "Start Authentication Flow on Save".'
             },
             {
-                number: 4,
+                number: 4, isTestStep: true,
+                sectionName: 'step-4',
                 title: 'Test Connection',
                 description: 'Click the button below to verify the connection to the Tooling API.'
             }
