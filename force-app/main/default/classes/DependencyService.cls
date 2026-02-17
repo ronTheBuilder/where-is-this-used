@@ -100,10 +100,9 @@ public with sharing class DependencyService {
 
         validateComponentName(componentName);
         String trimmedName = componentName.trim();
-        String escapedName = String.escapeSingleQuotes(trimmedName);
         String escapedRefType = String.escapeSingleQuotes(refType);
 
-        // Try filtering by RefMetadataComponentName first; some orgs don't support it in WHERE
+        // Filter by RefMetadataComponentType only; RefMetadataComponentName is not filterable in WHERE on all orgs
         String soql =
             'SELECT MetadataComponentId, MetadataComponentName, MetadataComponentType, MetadataComponentNamespace, ' +
             'RefMetadataComponentName, RefMetadataComponentType ' +
@@ -113,7 +112,7 @@ public with sharing class DependencyService {
 
         ToolingQueryResponse dependencyQuery = queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
 
-        // Client-side filter by component name (API may not support RefMetadataComponentName in WHERE)
+        // Client-side filter by component name
         List<Object> filteredRecords = new List<Object>();
         for (Object recordObj : dependencyQuery.records) {
             Map<String, Object> row = asMap(recordObj);
