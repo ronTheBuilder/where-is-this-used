@@ -44,19 +44,7 @@
             </template>
 
             <div class="journey-canvas" style={canvasStyle}>
-                <svg class="connector-layer" viewBox={svgViewBox} preserveAspectRatio="none" aria-hidden="true">
-                    <defs>
-                        <marker id="to-center" markerWidth="8" markerHeight="6" refx="7" refy="3" orient="auto">
-                            <path d="M0,0 L8,3 L0,6 z" class="arrow-fill"></path>
-                        </marker>
-                        <marker id="to-node" markerWidth="8" markerHeight="6" refx="7" refy="3" orient="auto">
-                            <path d="M0,0 L8,3 L0,6 z" class="arrow-fill"></path>
-                        </marker>
-                    </defs>
-                    <template for:each={connectorPaths} for:item="path">
-                        <path key={path.key} d={path.d} marker-end={path.marker} class="connector-path"></path>
-                    </template>
-                </svg>
+                <svg class="connector-layer" lwc:dom="manual"></svg>
 
                 <div class="journey-grid" style={canvasStyle}>
                     <section class="journey-column">
