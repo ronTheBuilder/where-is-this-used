@@ -1,0 +1,30 @@
+<template>
+    <div class="slds-dropdown-trigger slds-dropdown-trigger_click" lwc:ref="dropdownTrigger">
+        <lightning-button-menu
+            alternative-text="Export options"
+            icon-name="utility:download"
+            menu-alignment="right"
+            onselect={handleMenuSelect}
+            variant="border-filled"
+            label="Export"
+        >
+            <lightning-menu-item value="csv" label="Export as CSV" icon-name="utility:file"></lightning-menu-item>
+            <lightning-menu-item value="package-xml-download" label="Download package.xml" icon-name="utility:package"></lightning-menu-item>
+            <lightning-menu-item value="package-xml-copy" label="Copy package.xml" icon-name="utility:copy_to_clipboard"></lightning-menu-item>
+            <lightning-menu-divider></lightning-menu-divider>
+            <lightning-menu-item value="text" label="Copy as Text" icon-name="utility:text"></lightning-menu-item>
+            <lightning-menu-item value="markdown" label="Copy as Markdown" icon-name="utility:richtextbulletedlist"></lightning-menu-item>
+            <template lwc:if={showMermaid}>
+                <lightning-menu-item value="mermaid" label="Copy as Mermaid" icon-name="utility:flow"></lightning-menu-item>
+            </template>
+        </lightning-button-menu>
+    </div>
+    <template lwc:if={toastMessage}>
+        <div class="slds-notify slds-notify_toast slds-theme_success slds-m-top_x-small" role="status">
+            <span class="slds-assistive-text">success</span>
+            <div class="slds-notify__content">
+                <p>{toastMessage}</p>
+            </div>
+        </div>
+    </template>
+</template>

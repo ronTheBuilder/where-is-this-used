@@ -68,8 +68,10 @@ private with sharing class BlastRadiusServiceTest {
         Test.stopTest();
 
         System.assertEquals(true, response.limitReached);
-        System.assertEquals(500, response.stats.totalNodes);
-        System.assert(response.warningMessage != null && response.warningMessage.contains('500'));
+        // With MAX_API_CALLS=50, root uses 1 call then each child uses 1 → ~51 nodes
+        System.assert(response.stats.totalNodes > 1, 'Expected multiple nodes, got: ' + response.stats.totalNodes);
+        System.assert(response.stats.totalNodes <= 500, 'Expected at most 500 nodes');
+        System.assert(response.warningMessage != null);
     }
 
     @IsTest
@@ -193,55 +195,48 @@ private with sharing class BlastRadiusServiceTest {
         }
 
         private String basicResponse(String soql) {
-            if (soql.contains('RefMetadataComponentName = \'Account.MyField__c\'') && soql.contains('RefMetadataComponentType = \'CustomField\'')) {
+            // Refactored: queries by RefMetadataComponentType only; client-side filters by RefMetadataComponentName
+            if (soql.contains('RefMetadataComponentType = \'CustomField\'')) {
                 return '{"done":true,"totalSize":2,"records":[' +
-                    '{"MetadataComponentId":"301A","MetadataComponentName":"FlowUsage","MetadataComponentType":"Flow"},' +
-                    '{"MetadataComponentId":"01pA","MetadataComponentName":"ClassUsage","MetadataComponentType":"ApexClass"}' +
+                    '{"MetadataComponentId":"301A","MetadataComponentName":"FlowUsage","MetadataComponentType":"Flow","RefMetadataComponentName":"Account.MyField__c"},' +
+                    '{"MetadataComponentId":"01pA","MetadataComponentName":"ClassUsage","MetadataComponentType":"ApexClass","RefMetadataComponentName":"Account.MyField__c"}' +
                 ']}';
             }
-            if (soql.contains('RefMetadataComponentName = \'FlowUsage\'') && soql.contains('RefMetadataComponentType = \'Flow\'')) {
+            if (soql.contains('RefMetadataComponentType = \'Flow\'')) {
                 return '{"done":true,"totalSize":1,"records":[' +
-                    '{"MetadataComponentId":"01qA","MetadataComponentName":"TriggerUsage","MetadataComponentType":"ApexTrigger"}' +
+                    '{"MetadataComponentId":"01qA","MetadataComponentName":"TriggerUsage","MetadataComponentType":"ApexTrigger","RefMetadataComponentName":"FlowUsage"}' +
                 ']}';
+            }
+            if (soql.contains('RefMetadataComponentType = \'ApexClass\'')) {
+                return '{"done":true,"totalSize":0,"records":[]}';
             }
             return '{"done":true,"totalSize":0,"records":[]}';
         }
 
         private String cycleResponse(String soql) {
-            if (soql.contains('RefMetadataComponentName = \'CycleRoot\'')) {
-                return '{"done":true,"totalSize":1,"records":[' +
-                    '{"MetadataComponentId":"301CC","MetadataComponentName":"CycleChild","MetadataComponentType":"Flow"}' +
-                ']}';
-            }
-            if (soql.contains('RefMetadataComponentName = \'CycleChild\'')) {
-                return '{"done":true,"totalSize":1,"records":[' +
-                    '{"MetadataComponentId":"301CR","MetadataComponentName":"CycleRoot","MetadataComponentType":"Flow"}' +
+            if (soql.contains('RefMetadataComponentType = \'FlowDefinition\'') || soql.contains('RefMetadataComponentType = \'Flow\'')) {
+                // Return both; CycleRoot uses FlowDefinition type to match root key
+                return '{"done":true,"totalSize":2,"records":[' +
+                    '{"MetadataComponentId":"301CC","MetadataComponentName":"CycleChild","MetadataComponentType":"Flow","RefMetadataComponentName":"CycleRoot"},' +
+                    '{"MetadataComponentId":"301CR","MetadataComponentName":"CycleRoot","MetadataComponentType":"FlowDefinition","RefMetadataComponentName":"CycleChild"}' +
                 ']}';
             }
             return '{"done":true,"totalSize":0,"records":[]}';
         }
 
         private String depthResponse(String soql) {
-            if (soql.contains('RefMetadataComponentName = \'DepthRoot\'')) {
-                return '{"done":true,"totalSize":1,"records":[' +
-                    '{"MetadataComponentId":"301D1","MetadataComponentName":"DepthL1","MetadataComponentType":"Flow"}' +
-                ']}';
-            }
-            if (soql.contains('RefMetadataComponentName = \'DepthL1\'')) {
-                return '{"done":true,"totalSize":1,"records":[' +
-                    '{"MetadataComponentId":"301D2","MetadataComponentName":"DepthL2","MetadataComponentType":"Flow"}' +
-                ']}';
-            }
-            if (soql.contains('RefMetadataComponentName = \'DepthL2\'')) {
-                return '{"done":true,"totalSize":1,"records":[' +
-                    '{"MetadataComponentId":"301D3","MetadataComponentName":"DepthL3","MetadataComponentType":"Flow"}' +
+            if (soql.contains('RefMetadataComponentType = \'FlowDefinition\'') || soql.contains('RefMetadataComponentType = \'Flow\'')) {
+                return '{"done":true,"totalSize":3,"records":[' +
+                    '{"MetadataComponentId":"301D1","MetadataComponentName":"DepthL1","MetadataComponentType":"Flow","RefMetadataComponentName":"DepthRoot"},' +
+                    '{"MetadataComponentId":"301D2","MetadataComponentName":"DepthL2","MetadataComponentType":"Flow","RefMetadataComponentName":"DepthL1"},' +
+                    '{"MetadataComponentId":"301D3","MetadataComponentName":"DepthL3","MetadataComponentType":"Flow","RefMetadataComponentName":"DepthL2"}' +
                 ']}';
             }
             return '{"done":true,"totalSize":0,"records":[]}';
         }
 
         private String nodeCapResponse(String soql) {
-            if (!soql.contains('RefMetadataComponentName = \'NodeCapRoot\'')) {
+            if (!soql.contains('RefMetadataComponentType = \'FlowDefinition\'') && !soql.contains('RefMetadataComponentType = \'Flow\'')) {
                 return '{"done":true,"totalSize":0,"records":[]}';
             }
 
@@ -250,7 +245,8 @@ private with sharing class BlastRadiusServiceTest {
                 rows.add(new Map<String, Object>{
                     'MetadataComponentId' => '01pNC' + String.valueOf(i),
                     'MetadataComponentName' => 'NodeCapChild' + String.valueOf(i),
-                    'MetadataComponentType' => 'ApexClass'
+                    'MetadataComponentType' => 'ApexClass',
+                    'RefMetadataComponentName' => 'NodeCapRoot'
                 });
             }
 

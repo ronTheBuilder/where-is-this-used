@@ -1,18 +1,41 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
     <types>
-        <members>DependencyService</members>
+        <members>BlastRadiusController</members>
+        <members>BlastRadiusControllerTest</members>
+        <members>BlastRadiusService</members>
+        <members>BlastRadiusServiceTest</members>
+        <members>DataJourneyController</members>
+        <members>DataJourneyControllerTest</members>
+        <members>DataJourneyService</members>
+        <members>DataJourneyServiceTest</members>
         <members>DependencyController</members>
-        <members>MetadataPickerController</members>
-        <members>DependencyServiceTest</members>
         <members>DependencyControllerTest</members>
+        <members>DependencyService</members>
+        <members>DependencyServiceTest</members>
+        <members>FlowFieldAnalyzer</members>
+        <members>FlowFieldAnalyzerTest</members>
+        <members>MetadataPickerController</members>
         <members>MetadataPickerControllerTest</members>
+        <members>ProcessFlowController</members>
+        <members>ProcessFlowControllerTest</members>
+        <members>ProcessFlowService</members>
+        <members>ProcessFlowServiceTest</members>
+        <members>SetupUrlResolver</members>
+        <members>SetupUrlResolverTest</members>
+        <members>ToolingApiClient</members>
+        <members>ToolingApiClientTest</members>
         <name>ApexClass</name>
     </types>
     <types>
+        <members>blastRadiusGraph</members>
+        <members>dataJourneyView</members>
         <members>dependencyFinder</members>
-        <members>metadataPicker</members>
         <members>dependencyResults</members>
+        <members>exportMenu</members>
+        <members>exportUtils</members>
+        <members>metadataPicker</members>
+        <members>processFlowMap</members>
         <members>setupWizard</members>
         <name>LightningComponentBundle</name>
     </types>

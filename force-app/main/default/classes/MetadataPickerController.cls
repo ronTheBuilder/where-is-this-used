@@ -30,17 +30,29 @@ public with sharing class MetadataPickerController {
     @AuraEnabled(cacheable=true)
     public static List<FieldOption> getFields(String objectName) {
         if (String.isBlank(objectName)) {
-            throw new AuraHandledException('Object name is required.');
+            AuraHandledException ahe = new AuraHandledException('Object name is required.');
+
+            ahe.setMessage('Object name is required.');
+
+            throw ahe;
         }
 
         Map<String, Schema.SObjectType> described = Schema.getGlobalDescribe();
         if (!described.containsKey(objectName)) {
-            throw new AuraHandledException('Object not found: ' + objectName);
+            AuraHandledException ahe = new AuraHandledException('Object not found: ' + objectName);
+
+            ahe.setMessage('Object not found: ' + objectName);
+
+            throw ahe;
         }
 
         Schema.DescribeSObjectResult objectDescribe = described.get(objectName).getDescribe();
         if (!objectDescribe.isAccessible()) {
-            throw new AuraHandledException('You do not have access to object: ' + objectName);
+            AuraHandledException ahe = new AuraHandledException('You do not have access to object: ' + objectName);
+
+            ahe.setMessage('You do not have access to object: ' + objectName);
+
+            throw ahe;
         }
 
         List<FieldOption> options = new List<FieldOption>();
@@ -66,9 +78,17 @@ public with sharing class MetadataPickerController {
         try {
             return DependencyService.getActiveFlows();
         } catch (DependencyService.DependencyServiceException ex) {
-            throw new AuraHandledException(ex.getMessage());
+            AuraHandledException ahe = new AuraHandledException(ex.getMessage());
+
+            ahe.setMessage(ex.getMessage());
+
+            throw ahe;
         } catch (Exception ex) {
-            throw new AuraHandledException('Unable to load flows: ' + ex.getMessage());
+            AuraHandledException ahe = new AuraHandledException('Unable to load flows: ' + ex.getMessage());
+
+            ahe.setMessage('Unable to load flows: ' + ex.getMessage());
+
+            throw ahe;
         }
     }
 
@@ -77,9 +97,82 @@ public with sharing class MetadataPickerController {
         try {
             return DependencyService.getApexClasses();
         } catch (DependencyService.DependencyServiceException ex) {
-            throw new AuraHandledException(ex.getMessage());
+            AuraHandledException ahe = new AuraHandledException(ex.getMessage());
+
+            ahe.setMessage(ex.getMessage());
+
+            throw ahe;
         } catch (Exception ex) {
-            throw new AuraHandledException('Unable to load Apex classes: ' + ex.getMessage());
+            AuraHandledException ahe = new AuraHandledException('Unable to load Apex classes: ' + ex.getMessage());
+
+            ahe.setMessage('Unable to load Apex classes: ' + ex.getMessage());
+
+            throw ahe;
+        }
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<DependencyService.MetadataOption> getRecordTypes(String objectName) {
+        try {
+            return DependencyService.getRecordTypes(objectName);
+        } catch (Exception ex) {
+            AuraHandledException ahe = new AuraHandledException('Unable to load record types: ' + ex.getMessage());
+
+            ahe.setMessage('Unable to load record types: ' + ex.getMessage());
+
+            throw ahe;
+        }
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<DependencyService.MetadataOption> getCustomLabels() {
+        try {
+            return DependencyService.getCustomLabels();
+        } catch (Exception ex) {
+            AuraHandledException ahe = new AuraHandledException('Unable to load custom labels: ' + ex.getMessage());
+
+            ahe.setMessage('Unable to load custom labels: ' + ex.getMessage());
+
+            throw ahe;
+        }
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<DependencyService.MetadataOption> getValidationRules(String objectName) {
+        try {
+            return DependencyService.getValidationRules(objectName);
+        } catch (Exception ex) {
+            AuraHandledException ahe = new AuraHandledException('Unable to load validation rules: ' + ex.getMessage());
+
+            ahe.setMessage('Unable to load validation rules: ' + ex.getMessage());
+
+            throw ahe;
+        }
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<DependencyService.MetadataOption> getPlatformEvents() {
+        try {
+            return DependencyService.getPlatformEvents();
+        } catch (Exception ex) {
+            AuraHandledException ahe = new AuraHandledException('Unable to load platform events: ' + ex.getMessage());
+
+            ahe.setMessage('Unable to load platform events: ' + ex.getMessage());
+
+            throw ahe;
+        }
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<DependencyService.MetadataOption> getCustomMetadataTypes() {
+        try {
+            return DependencyService.getCustomMetadataTypes();
+        } catch (Exception ex) {
+            AuraHandledException ahe = new AuraHandledException('Unable to load custom metadata types: ' + ex.getMessage());
+
+            ahe.setMessage('Unable to load custom metadata types: ' + ex.getMessage());
+
+            throw ahe;
         }
     }
 

@@ -4,9 +4,17 @@ public with sharing class ProcessFlowController {
         try {
             return ProcessFlowService.getProcessFlow(objectName, triggerContext);
         } catch (ProcessFlowService.ProcessFlowServiceException ex) {
-            throw new AuraHandledException(ex.getMessage());
+            AuraHandledException ahe = new AuraHandledException(ex.getMessage());
+
+            ahe.setMessage(ex.getMessage());
+
+            throw ahe;
         } catch (Exception ex) {
-            throw new AuraHandledException('Unexpected error while building process flow map: ' + ex.getMessage());
+            AuraHandledException ahe = new AuraHandledException('Unexpected error while building process flow map: ' + ex.getMessage());
+
+            ahe.setMessage('Unexpected error while building process flow map: ' + ex.getMessage());
+
+            throw ahe;
         }
     }
 }

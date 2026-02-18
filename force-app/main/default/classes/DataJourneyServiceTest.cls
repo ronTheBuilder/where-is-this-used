@@ -113,43 +113,47 @@ private with sharing class DataJourneyServiceTest {
         private String queryResponseFor(String soql) {
             if (soql.contains('FROM FlowVersionView')) {
                 return '{"done":true,"totalSize":3,"records":[' +
-                    '{"Id":"F1","FlowDefinitionView":{"ApiName":"Territory_Assignment_Flow","Label":"Territory Assignment"}},' +
-                    '{"Id":"F2","FlowDefinitionView":{"ApiName":"Route_To_Queue","Label":"Route To Queue"}},' +
-                    '{"Id":"F3","FlowDefinitionView":{"ApiName":"Set_Region","Label":"Set Region"}}' +
+                    '{"Id":"F1","ProcessType":"AutoLaunchedFlow","FlowDefinitionView":{"ApiName":"Territory_Assignment_Flow","Label":"Territory Assignment"}},' +
+                    '{"Id":"F2","ProcessType":"AutoLaunchedFlow","FlowDefinitionView":{"ApiName":"Route_To_Queue","Label":"Route To Queue"}},' +
+                    '{"Id":"F3","ProcessType":"AutoLaunchedFlow","FlowDefinitionView":{"ApiName":"Set_Region","Label":"Set Region"}}' +
                 ']}';
             }
 
-            if (soql.contains('FROM MetadataComponentDependency') && soql.contains('Account.Region__c')) {
-                return '{"done":true,"totalSize":2,"records":[' +
-                    '{"MetadataComponentId":"TR1","MetadataComponentName":"AccountTrigger","MetadataComponentType":"ApexTrigger","MetadataComponentNamespace":null},' +
-                    '{"MetadataComponentId":"F1","MetadataComponentName":"Territory_Assignment_Flow","MetadataComponentType":"Flow","MetadataComponentNamespace":null}' +
-                ']}';
-            }
-
-            if (soql.contains('FROM MetadataComponentDependency') && soql.contains('Opportunity.Type')) {
+            if (soql.contains('FROM MetadataComponentDependency') && soql.contains('StandardEntity')) {
+                // Opportunity.Type downstream dependencies
                 return '{"done":true,"totalSize":1,"records":[' +
-                    '{"MetadataComponentId":"F2","MetadataComponentName":"Route_To_Queue","MetadataComponentType":"Flow","MetadataComponentNamespace":null}' +
+                    '{"MetadataComponentId":"F2","MetadataComponentName":"Route_To_Queue","MetadataComponentType":"Flow","MetadataComponentNamespace":null,"RefMetadataComponentName":"Opportunity.Type"}' +
                 ']}';
             }
 
-            if (soql.contains('FROM MetadataComponentDependency') && soql.contains('Case.Origin')) {
-                return '{"done":true,"totalSize":0,"records":[]}';
-            }
-
-            if (soql.contains('FROM MetadataComponentDependency') && soql.contains('Account.BigField__c')) {
-                List<Object> many = new List<Object>();
+            if (soql.contains('FROM MetadataComponentDependency') && soql.contains('CustomField')) {
+                // Combined response — client-side filtering picks the right records
+                List<Object> combined = new List<Object>();
+                // Region__c dependencies
+                combined.add(new Map<String, Object>{
+                    'MetadataComponentId' => 'TR1', 'MetadataComponentName' => 'AccountTrigger',
+                    'MetadataComponentType' => 'ApexTrigger', 'MetadataComponentNamespace' => null,
+                    'RefMetadataComponentName' => 'Account.Region__c'
+                });
+                combined.add(new Map<String, Object>{
+                    'MetadataComponentId' => 'F1', 'MetadataComponentName' => 'Territory_Assignment_Flow',
+                    'MetadataComponentType' => 'Flow', 'MetadataComponentNamespace' => null,
+                    'RefMetadataComponentName' => 'Account.Region__c'
+                });
+                // BigField__c dependencies (60 flows for limit test)
                 for (Integer i = 0; i < 60; i++) {
-                    many.add(new Map<String, Object>{
+                    combined.add(new Map<String, Object>{
                         'MetadataComponentId' => 'L' + String.valueOf(i),
                         'MetadataComponentName' => 'FlowLimit' + String.valueOf(i),
                         'MetadataComponentType' => 'Flow',
-                        'MetadataComponentNamespace' => null
+                        'MetadataComponentNamespace' => null,
+                        'RefMetadataComponentName' => 'Account.BigField__c'
                     });
                 }
                 Map<String, Object> payload = new Map<String, Object>{
                     'done' => true,
-                    'totalSize' => 60,
-                    'records' => many
+                    'totalSize' => combined.size(),
+                    'records' => combined
                 };
                 return JSON.serialize(payload);
             }
@@ -167,7 +171,7 @@ private with sharing class DataJourneyServiceTest {
 
             if (endpoint.contains('/sobjects/Flow/F2')) {
                 return '{"Metadata":{' +
-                    '"formulas":[{"name":"route","expression":"IF(Opportunity.Type=\"Enterprise\", \"Queue\", \"Standard\")"}],' +
+                    '"formulas":[{"name":"route","expression":"IF(Opportunity.Type=\\"Enterprise\\", \\"Queue\\", \\"Standard\\")"}],' +
                     '"recordCreates":[{"inputAssignments":[{"field":"Case.Origin","value":{"stringValue":"Phone"}}]}]' +
                 '}}';
             }

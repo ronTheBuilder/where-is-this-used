@@ -1,6 +1,4 @@
 public with sharing class DataJourneyService {
-    private static final String NAMED_CREDENTIAL = 'callout:WITU_ToolingAPI';
-    private static final String TOOLING_BASE_PATH = '/services/data/v65.0/tooling';
 
     private static final Integer MAX_DEPTH = 3;
     private static final Integer MAX_DEPENDENCY_ROWS = 2000;
@@ -8,7 +6,6 @@ public with sharing class DataJourneyService {
     private static final Integer MAX_UPSTREAM_NODES = 50;
     private static final Integer MAX_FLOW_METADATA_RETRIEVALS = 50;
 
-    private static final String CUSTOM_PERMISSION = 'WITU_Access';
     private static final Integer MAX_NAME_LENGTH = 255;
     private static final Pattern VALID_NAME = Pattern.compile('^[a-zA-Z][a-zA-Z0-9_]*$');
     private static final Pattern VALID_FIELD = Pattern.compile('^[a-zA-Z][a-zA-Z0-9_]*(__c|__pc|__s)?$');
@@ -40,14 +37,6 @@ public with sharing class DataJourneyService {
         @AuraEnabled public List<DataJourneyEdge> edges;
         @AuraEnabled public List<String> warnings;
         @AuraEnabled public Boolean limitReached;
-    }
-
-    private class ToolingQueryResponse {
-        public List<Object> records = new List<Object>();
-        public Boolean done;
-        public Integer totalSize;
-        public String nextRecordsUrl;
-        public Boolean limitReached = false;
     }
 
     private class DependencyHit {
@@ -86,17 +75,8 @@ public with sharing class DataJourneyService {
     }
 
     @TestVisible
-    private static void enforceAccess() {
-        if (!FeatureManagement.checkPermission(CUSTOM_PERMISSION)) {
-            throw new DataJourneyServiceException(
-                'Insufficient permissions. The custom permission "' + CUSTOM_PERMISSION + '" is required. ' +
-                'Ask your admin to assign the "Where Is This Used? User" permission set.'
-            );
-        }
-    }
-
     public static DataJourneyResponse traceDataJourney(String objectName, String fieldName, Integer maxDepth) {
-        enforceAccess();
+        wrapEnforceAccess();
         Integer depth = sanitizeMaxDepth(maxDepth);
         String validatedObject = validateObjectName(objectName);
         String validatedField = validateFieldName(fieldName);
@@ -106,15 +86,19 @@ public with sharing class DataJourneyService {
         Map<String, DataJourneyNode> nodeIndex = new Map<String, DataJourneyNode>();
         Set<String> edgeIndex = new Set<String>();
 
-        addOrMergeNode(response, nodeIndex, buildFieldNode(validatedObject, validatedField, 'root', 'readwrite', 0, null, null), context);
-        traceDownstreamInternal(validatedObject, validatedField, depth, response, nodeIndex, edgeIndex, context);
-        traceUpstreamInternal(validatedObject, validatedField, response, nodeIndex, edgeIndex, context);
+        try {
+            addOrMergeNode(response, nodeIndex, buildFieldNode(validatedObject, validatedField, 'root', 'readwrite', 0, null, null), context);
+            traceDownstreamInternal(validatedObject, validatedField, depth, response, nodeIndex, edgeIndex, context);
+            traceUpstreamInternal(validatedObject, validatedField, response, nodeIndex, edgeIndex, context);
+        } catch (ToolingApiClient.ToolingApiClientException ex) {
+            throw new DataJourneyServiceException(ex.getMessage());
+        }
         finalizeResponse(response, context);
         return response;
     }
 
     public static DataJourneyResponse traceDownstream(String objectName, String fieldName, Integer maxDepth) {
-        enforceAccess();
+        wrapEnforceAccess();
         Integer depth = sanitizeMaxDepth(maxDepth);
         String validatedObject = validateObjectName(objectName);
         String validatedField = validateFieldName(fieldName);
@@ -124,14 +108,18 @@ public with sharing class DataJourneyService {
         Map<String, DataJourneyNode> nodeIndex = new Map<String, DataJourneyNode>();
         Set<String> edgeIndex = new Set<String>();
 
-        addOrMergeNode(response, nodeIndex, buildFieldNode(validatedObject, validatedField, 'root', 'readwrite', 0, null, null), context);
-        traceDownstreamInternal(validatedObject, validatedField, depth, response, nodeIndex, edgeIndex, context);
+        try {
+            addOrMergeNode(response, nodeIndex, buildFieldNode(validatedObject, validatedField, 'root', 'readwrite', 0, null, null), context);
+            traceDownstreamInternal(validatedObject, validatedField, depth, response, nodeIndex, edgeIndex, context);
+        } catch (ToolingApiClient.ToolingApiClientException ex) {
+            throw new DataJourneyServiceException(ex.getMessage());
+        }
         finalizeResponse(response, context);
         return response;
     }
 
     public static DataJourneyResponse traceUpstream(String objectName, String fieldName, Integer maxDepth) {
-        enforceAccess();
+        wrapEnforceAccess();
         String validatedObject = validateObjectName(objectName);
         String validatedField = validateFieldName(fieldName);
 
@@ -140,10 +128,22 @@ public with sharing class DataJourneyService {
         Map<String, DataJourneyNode> nodeIndex = new Map<String, DataJourneyNode>();
         Set<String> edgeIndex = new Set<String>();
 
-        addOrMergeNode(response, nodeIndex, buildFieldNode(validatedObject, validatedField, 'root', 'readwrite', 0, null, null), context);
-        traceUpstreamInternal(validatedObject, validatedField, response, nodeIndex, edgeIndex, context);
+        try {
+            addOrMergeNode(response, nodeIndex, buildFieldNode(validatedObject, validatedField, 'root', 'readwrite', 0, null, null), context);
+            traceUpstreamInternal(validatedObject, validatedField, response, nodeIndex, edgeIndex, context);
+        } catch (ToolingApiClient.ToolingApiClientException ex) {
+            throw new DataJourneyServiceException(ex.getMessage());
+        }
         finalizeResponse(response, context);
         return response;
+    }
+
+    private static void wrapEnforceAccess() {
+        try {
+            ToolingApiClient.enforceAccess();
+        } catch (ToolingApiClient.ToolingApiClientException ex) {
+            throw new DataJourneyServiceException(ex.getMessage());
+        }
     }
 
     private static void traceDownstreamInternal(
@@ -369,7 +369,7 @@ public with sharing class DataJourneyService {
         node.direction = direction;
         node.accessType = accessType;
         node.depth = depth;
-        node.setupUrl = String.isBlank(hit.setupUrl) ? buildSetupUrl(hit.metadataComponentType) : hit.setupUrl;
+        node.setupUrl = String.isBlank(hit.setupUrl) ? SetupUrlResolver.resolve(hit.metadataComponentType, null, null) : hit.setupUrl;
         node.detail = detail;
         return node;
     }
@@ -450,14 +450,13 @@ public with sharing class DataJourneyService {
         String soql =
             'SELECT MetadataComponentId, MetadataComponentName, MetadataComponentType, MetadataComponentNamespace, RefMetadataComponentName ' +
             'FROM MetadataComponentDependency ' +
-            'WHERE RefMetadataComponentType = \'' + String.escapeSingleQuotes(refType) + '\' ' +
-            'ORDER BY MetadataComponentType, MetadataComponentName';
+            'WHERE RefMetadataComponentType = \'' + String.escapeSingleQuotes(refType) + '\'';
 
-        ToolingQueryResponse queryResponse = queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
+        ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
         List<DependencyHit> hits = new List<DependencyHit>();
 
         for (Object recordObj : queryResponse.records) {
-            Map<String, Object> row = asMap(recordObj);
+            Map<String, Object> row = ToolingApiClient.asMap(recordObj);
             if (row == null) {
                 continue;
             }
@@ -473,7 +472,7 @@ public with sharing class DataJourneyService {
             hit.metadataComponentType = stringValue(row.get('MetadataComponentType'));
             hit.metadataComponentNamespace = stringValue(row.get('MetadataComponentNamespace'));
             hit.accessType = inferAccessType(hit.metadataComponentType);
-            hit.setupUrl = buildSetupUrl(hit.metadataComponentType);
+            hit.setupUrl = SetupUrlResolver.resolve(hit.metadataComponentType, null, null);
             hits.add(hit);
         }
 
@@ -487,16 +486,16 @@ public with sharing class DataJourneyService {
             'WHERE Status = \'Active\' ' +
             'ORDER BY FlowDefinitionView.ApiName';
 
-        ToolingQueryResponse queryResponse = queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
+        ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
         List<ActiveFlowVersion> flows = new List<ActiveFlowVersion>();
 
         for (Object recordObj : queryResponse.records) {
-            Map<String, Object> record = asMap(recordObj);
+            Map<String, Object> record = ToolingApiClient.asMap(recordObj);
             if (record == null) {
                 continue;
             }
 
-            Map<String, Object> def = asMap(record.get('FlowDefinitionView'));
+            Map<String, Object> def = ToolingApiClient.asMap(record.get('FlowDefinitionView'));
             ActiveFlowVersion flow = new ActiveFlowVersion();
             flow.id = stringValue(record.get('Id'));
             flow.apiName = def == null ? null : stringValue(def.get('ApiName'));
@@ -529,9 +528,9 @@ public with sharing class DataJourneyService {
         }
 
         context.flowRetrievalCount++;
-        HttpResponse callout = sendGet(TOOLING_BASE_PATH + '/sobjects/Flow/' + flowVersionId);
-        Map<String, Object> payload = asMap(JSON.deserializeUntyped(callout.getBody()));
-        Map<String, Object> metadata = payload == null ? null : asMap(payload.get('Metadata'));
+        HttpResponse callout = ToolingApiClient.sendGet(ToolingApiClient.TOOLING_BASE_PATH + '/sobjects/Flow/' + flowVersionId);
+        Map<String, Object> payload = ToolingApiClient.asMap(JSON.deserializeUntyped(callout.getBody()));
+        Map<String, Object> metadata = payload == null ? null : ToolingApiClient.asMap(payload.get('Metadata'));
         FlowFieldAnalyzer.FlowFieldAnalysis analysis = FlowFieldAnalyzer.analyzeFlow(metadata);
         context.flowAnalysisByVersionId.put(flowVersionId, analysis);
         return analysis;
@@ -639,81 +638,7 @@ public with sharing class DataJourneyService {
         return buildFullFieldName(defaultObject, last);
     }
 
-    private static ToolingQueryResponse queryToolingRecords(String soql, Integer maxRows) {
-        ToolingQueryResponse aggregate = new ToolingQueryResponse();
-        String path = TOOLING_BASE_PATH + '/query/?q=' + EncodingUtil.urlEncode(soql, 'UTF-8');
 
-        while (path != null) {
-            HttpResponse response = sendGet(path);
-            Map<String, Object> payload = asMap(JSON.deserializeUntyped(response.getBody()));
-            List<Object> records = payload == null ? null : asList(payload.get('records'));
-
-            if (records != null) {
-                for (Object item : records) {
-                    if (aggregate.records.size() >= maxRows) {
-                        aggregate.limitReached = true;
-                        aggregate.done = false;
-                        aggregate.nextRecordsUrl = payload == null ? null : stringValue(payload.get('nextRecordsUrl'));
-                        return aggregate;
-                    }
-                    aggregate.records.add(item);
-                }
-            }
-
-            aggregate.done = payload == null || payload.get('done') == null ? true : (Boolean) payload.get('done');
-            aggregate.totalSize = payload == null || payload.get('totalSize') == null
-                ? aggregate.records.size()
-                : Integer.valueOf(String.valueOf(payload.get('totalSize')));
-            aggregate.nextRecordsUrl = payload == null || payload.get('nextRecordsUrl') == null
-                ? null
-                : String.valueOf(payload.get('nextRecordsUrl'));
-
-            if (aggregate.done == true || String.isBlank(aggregate.nextRecordsUrl)) {
-                break;
-            }
-            path = aggregate.nextRecordsUrl;
-        }
-
-        return aggregate;
-    }
-
-    private static HttpResponse sendGet(String path) {
-        HttpRequest request = new HttpRequest();
-        request.setMethod('GET');
-        request.setTimeout(120000);
-        request.setEndpoint(resolveEndpoint(path));
-
-        HttpResponse response = new Http().send(request);
-        Integer status = response.getStatusCode();
-        if (status < 200 || status >= 300) {
-            System.debug(LoggingLevel.ERROR, 'Tooling API error (' + status + '): ' + response.getBody());
-
-            String userMessage;
-            if (status == 401 || status == 403) {
-                userMessage = 'Authentication failed. Please verify your Named Credential (WITU_ToolingAPI) is configured correctly.';
-            } else if (status == 404) {
-                userMessage = 'Tooling API endpoint not found. Please verify your org\'s API version supports this feature.';
-            } else if (status == 429) {
-                userMessage = 'API rate limit exceeded. Please wait a moment and try again.';
-            } else {
-                userMessage = 'Tooling API request failed (HTTP ' + status + '). Check Setup > Debug Logs for details.';
-            }
-            throw new DataJourneyServiceException(userMessage);
-        }
-
-        return response;
-    }
-
-    private static String resolveEndpoint(String path) {
-        if (String.isBlank(path)) {
-            throw new DataJourneyServiceException('Tooling API path cannot be empty.');
-        }
-
-        if (path.startsWith('/services/')) {
-            return NAMED_CREDENTIAL + path;
-        }
-        return NAMED_CREDENTIAL + path;
-    }
 
     private static Integer sanitizeMaxDepth(Integer maxDepth) {
         Integer depth = maxDepth == null ? MAX_DEPTH : maxDepth;
@@ -794,26 +719,6 @@ public with sharing class DataJourneyService {
         return 'Read';
     }
 
-    private static String buildSetupUrl(String metadataComponentType) {
-        if (String.isBlank(metadataComponentType)) {
-            return '/lightning/setup/home';
-        }
-
-        Map<String, String> setupRoutes = new Map<String, String>{
-            'ApexClass' => '/lightning/setup/ApexClasses/home',
-            'ApexTrigger' => '/lightning/setup/ApexTriggers/home',
-            'Flow' => '/lightning/setup/Flows/home',
-            'ValidationRule' => '/lightning/setup/ObjectManager/home',
-            'Layout' => '/lightning/setup/ObjectManager/home',
-            'LightningComponentBundle' => '/lightning/setup/LightningComponentBundles/home',
-            'AuraDefinitionBundle' => '/lightning/setup/AuraDefinitionBundles/home'
-        };
-
-        return setupRoutes.containsKey(metadataComponentType)
-            ? setupRoutes.get(metadataComponentType)
-            : '/lightning/setup/home';
-    }
-
     private static String normalizeReference(String reference) {
         if (String.isBlank(reference)) {
             return null;
@@ -856,11 +761,5 @@ public with sharing class DataJourneyService {
         return value == null ? null : String.valueOf(value);
     }
 
-    private static Map<String, Object> asMap(Object value) {
-        return value instanceof Map<String, Object> ? (Map<String, Object>) value : null;
-    }
 
-    private static List<Object> asList(Object value) {
-        return value instanceof List<Object> ? (List<Object>) value : null;
-    }
 }

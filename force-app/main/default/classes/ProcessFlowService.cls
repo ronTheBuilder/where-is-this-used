@@ -1,7 +1,4 @@
 public with sharing class ProcessFlowService {
-    private static final String NAMED_CREDENTIAL = 'callout:WITU_ToolingAPI';
-    private static final String TOOLING_BASE_PATH = '/services/data/v65.0/tooling';
-    private static final String CUSTOM_PERMISSION = 'WITU_Access';
 
     private static final Integer MAX_TRIGGERS = 50;
     private static final Integer MAX_VALIDATION_RULES = 200;
@@ -10,18 +7,9 @@ public with sharing class ProcessFlowService {
 
     private static final Pattern VALID_OBJECT_NAME = Pattern.compile('^[a-zA-Z][a-zA-Z0-9_]*$');
 
-    @TestVisible
-    private static Boolean bypassAccessCheckForTests = false;
+    // Access bypass: use ToolingApiClient.bypassAccessCheckForTests
 
     public class ProcessFlowServiceException extends Exception {}
-
-    public class ToolingQueryResponse {
-        public List<Object> records = new List<Object>();
-        public Boolean done;
-        public Integer totalSize;
-        public String nextRecordsUrl;
-        public Boolean limitReached = false;
-    }
 
     public class PhaseDefinition {
         public Integer phaseNumber;
@@ -80,7 +68,11 @@ public with sharing class ProcessFlowService {
     };
 
     public static ProcessFlowResponse getProcessFlow(String objectName, String triggerContext) {
-        enforceAccess();
+        try {
+            ToolingApiClient.enforceAccess();
+        } catch (ToolingApiClient.ToolingApiClientException ex) {
+            throw new ProcessFlowServiceException(ex.getMessage());
+        }
 
         String normalizedObject = validateObjectName(objectName);
         String normalizedContext = normalizeTriggerContext(triggerContext);
@@ -92,9 +84,13 @@ public with sharing class ProcessFlowService {
 
         Map<Integer, AutomationPhase> phaseMap = initializePhases();
 
-        loadTriggers(normalizedObject, normalizedContext, phaseMap, response.warnings);
-        loadValidationRules(normalizedObject, normalizedContext, phaseMap);
-        loadRecordTriggeredFlows(normalizedObject, normalizedContext, phaseMap, response.warnings);
+        try {
+            loadTriggers(normalizedObject, normalizedContext, phaseMap, response.warnings);
+            loadValidationRules(normalizedObject, normalizedContext, phaseMap);
+            loadRecordTriggeredFlows(normalizedObject, normalizedContext, phaseMap, response.warnings);
+        } catch (ToolingApiClient.ToolingApiClientException ex) {
+            throw new ProcessFlowServiceException(ex.getMessage());
+        }
 
         response.phases = toOrderedPhaseList(phaseMap);
         response.totalAutomations = countSteps(response.phases);
@@ -102,18 +98,6 @@ public with sharing class ProcessFlowService {
     }
 
     @TestVisible
-    private static void enforceAccess() {
-        if (Test.isRunningTest() && bypassAccessCheckForTests) {
-            return;
-        }
-        if (!FeatureManagement.checkPermission(CUSTOM_PERMISSION)) {
-            throw new ProcessFlowServiceException(
-                'Insufficient permissions. The custom permission "' + CUSTOM_PERMISSION + '" is required. ' +
-                'Ask your admin to assign the "Where Is This Used? User" permission set.'
-            );
-        }
-    }
-
     private static String validateObjectName(String objectName) {
         if (String.isBlank(objectName)) {
             throw new ProcessFlowServiceException('Object API name is required.');
@@ -179,13 +163,13 @@ public with sharing class ProcessFlowService {
             'FROM ApexTrigger ' +
             'WHERE TableEnumOrId = \'' + String.escapeSingleQuotes(objectName) + '\'';
 
-        ToolingQueryResponse queryResponse = queryToolingRecords(soql, MAX_TRIGGERS);
+        ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryToolingRecords(soql, MAX_TRIGGERS);
         if (queryResponse.limitReached) {
             warnings.add('Showing first ' + MAX_TRIGGERS + ' triggers due to API safety limits.');
         }
 
         for (Object recordObj : queryResponse.records) {
-            Map<String, Object> row = asMap(recordObj);
+            Map<String, Object> row = ToolingApiClient.asMap(recordObj);
             if (row == null) {
                 continue;
             }
@@ -264,9 +248,9 @@ public with sharing class ProcessFlowService {
             'WHERE EntityDefinition.QualifiedApiName = \'' + String.escapeSingleQuotes(objectName) + '\' ' +
             'AND Active = true';
 
-        ToolingQueryResponse queryResponse = queryToolingRecords(soql, MAX_VALIDATION_RULES);
+        ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryToolingRecords(soql, MAX_VALIDATION_RULES);
         for (Object recordObj : queryResponse.records) {
-            Map<String, Object> row = asMap(recordObj);
+            Map<String, Object> row = ToolingApiClient.asMap(recordObj);
             if (row == null) {
                 continue;
             }
@@ -304,13 +288,13 @@ public with sharing class ProcessFlowService {
             'WHERE ProcessType = \'AutoLaunchedFlow\' ' +
             'AND Status = \'Active\'';
 
-        ToolingQueryResponse queryResponse = queryToolingRecords(soql, MAX_FLOWS);
+        ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryToolingRecords(soql, MAX_FLOWS);
         if (queryResponse.limitReached) {
             warnings.add('Showing first ' + MAX_FLOWS + ' record-triggered flows due to API safety limits.');
         }
 
         for (Object recordObj : queryResponse.records) {
-            Map<String, Object> row = asMap(recordObj);
+            Map<String, Object> row = ToolingApiClient.asMap(recordObj);
             if (row == null || !matchesTriggerObject(row.get('TriggerObjectOrEvent'), objectName)) {
                 continue;
             }
@@ -328,7 +312,7 @@ public with sharing class ProcessFlowService {
                 continue;
             }
 
-            Map<String, Object> flowDefView = asMap(row.get('FlowDefinitionView'));
+            Map<String, Object> flowDefView = ToolingApiClient.asMap(row.get('FlowDefinitionView'));
             String apiName = flowDefView == null ? null : String.valueOf(flowDefView.get('ApiName'));
             String label = flowDefView == null ? null : String.valueOf(flowDefView.get('Label'));
             String name = String.isBlank(label) ? apiName : label;
@@ -387,7 +371,7 @@ public with sharing class ProcessFlowService {
             return String.valueOf(triggerObjectOrEvent).toLowerCase() == objectName.toLowerCase();
         }
 
-        Map<String, Object> triggerMap = asMap(triggerObjectOrEvent);
+        Map<String, Object> triggerMap = ToolingApiClient.asMap(triggerObjectOrEvent);
         if (triggerMap != null) {
             String qualified = String.valueOf(triggerMap.get('QualifiedApiName'));
             if (!String.isBlank(qualified) && qualified.toLowerCase() == objectName.toLowerCase()) {
@@ -530,7 +514,7 @@ public with sharing class ProcessFlowService {
             return;
         }
 
-        Map<String, Object> mapNode = asMap(node);
+        Map<String, Object> mapNode = ToolingApiClient.asMap(node);
         if (mapNode != null) {
             for (String key : mapNode.keySet()) {
                 Object value = mapNode.get(key);
@@ -542,7 +526,7 @@ public with sharing class ProcessFlowService {
             return;
         }
 
-        List<Object> listNode = asList(node);
+        List<Object> listNode = ToolingApiClient.asList(node);
         if (listNode != null) {
             for (Object item : listNode) {
                 collectStringValues(item, keyName, output);
@@ -551,83 +535,12 @@ public with sharing class ProcessFlowService {
     }
 
     private static Map<String, Object> getFlowMetadata(String flowVersionId) {
-        HttpResponse response = sendGet(TOOLING_BASE_PATH + '/sobjects/Flow/' + flowVersionId);
-        Map<String, Object> payload = asMap(JSON.deserializeUntyped(response.getBody()));
-        return asMap(payload.get('Metadata'));
+        HttpResponse response = ToolingApiClient.sendGet(ToolingApiClient.TOOLING_BASE_PATH + '/sobjects/Flow/' + flowVersionId);
+        Map<String, Object> payload = ToolingApiClient.asMap(JSON.deserializeUntyped(response.getBody()));
+        return ToolingApiClient.asMap(payload.get('Metadata'));
     }
 
-    private static ToolingQueryResponse queryToolingRecords(String soql, Integer maxRows) {
-        ToolingQueryResponse aggregate = new ToolingQueryResponse();
-        String path = TOOLING_BASE_PATH + '/query/?q=' + EncodingUtil.urlEncode(soql, 'UTF-8');
 
-        while (path != null) {
-            HttpResponse response = sendGet(path);
-            Map<String, Object> payload = asMap(JSON.deserializeUntyped(response.getBody()));
-            List<Object> records = asList(payload.get('records'));
-            if (records != null) {
-                for (Object item : records) {
-                    if (aggregate.records.size() >= maxRows) {
-                        aggregate.limitReached = true;
-                        aggregate.done = false;
-                        aggregate.nextRecordsUrl = String.valueOf(payload.get('nextRecordsUrl'));
-                        return aggregate;
-                    }
-                    aggregate.records.add(item);
-                }
-            }
-
-            aggregate.done = payload.get('done') == null ? true : (Boolean) payload.get('done');
-            aggregate.totalSize = payload.get('totalSize') == null
-                ? aggregate.records.size()
-                : Integer.valueOf(String.valueOf(payload.get('totalSize')));
-            aggregate.nextRecordsUrl = payload.get('nextRecordsUrl') == null
-                ? null
-                : String.valueOf(payload.get('nextRecordsUrl'));
-
-            if (aggregate.done == true || String.isBlank(aggregate.nextRecordsUrl)) {
-                break;
-            }
-            path = aggregate.nextRecordsUrl;
-        }
-
-        return aggregate;
-    }
-
-    private static HttpResponse sendGet(String path) {
-        HttpRequest request = new HttpRequest();
-        request.setMethod('GET');
-        request.setTimeout(120000);
-        request.setEndpoint(resolveEndpoint(path));
-
-        HttpResponse response = new Http().send(request);
-        Integer status = response.getStatusCode();
-        if (status < 200 || status >= 300) {
-            System.debug(LoggingLevel.ERROR, 'Tooling API error (' + status + '): ' + response.getBody());
-
-            String userMessage;
-            if (status == 401 || status == 403) {
-                userMessage = 'Authentication failed. Please verify your Named Credential (WITU_ToolingAPI) is configured correctly.';
-            } else if (status == 404) {
-                userMessage = 'Tooling API endpoint not found. Please verify your org\'s API version supports this feature.';
-            } else if (status == 429) {
-                userMessage = 'API rate limit exceeded. Please wait a moment and try again.';
-            } else {
-                userMessage = 'Tooling API request failed (HTTP ' + status + '). Check Setup > Debug Logs for details.';
-            }
-            throw new ProcessFlowServiceException(userMessage);
-        }
-        return response;
-    }
-
-    private static String resolveEndpoint(String path) {
-        if (String.isBlank(path)) {
-            throw new ProcessFlowServiceException('Tooling API path cannot be empty.');
-        }
-        if (path.startsWith('/services/')) {
-            return NAMED_CREDENTIAL + path;
-        }
-        return NAMED_CREDENTIAL + path;
-    }
 
     private static Boolean toBoolean(Object value) {
         if (value == null) {
@@ -639,11 +552,5 @@ public with sharing class ProcessFlowService {
         return String.valueOf(value).toLowerCase() == 'true';
     }
 
-    private static Map<String, Object> asMap(Object value) {
-        return value instanceof Map<String, Object> ? (Map<String, Object>) value : null;
-    }
 
-    private static List<Object> asList(Object value) {
-        return value instanceof List<Object> ? (List<Object>) value : null;
-    }
 }

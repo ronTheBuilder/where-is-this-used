@@ -2,7 +2,7 @@
 private with sharing class ProcessFlowControllerTest {
     @IsTest
     static void getProcessFlow_returnsResponse() {
-        ProcessFlowService.bypassAccessCheckForTests = true;
+        ToolingApiClient.bypassAccessCheckForTests = true;
         Test.setMock(HttpCalloutMock.class, new ControllerMock());
 
         Test.startTest();
@@ -16,7 +16,7 @@ private with sharing class ProcessFlowControllerTest {
 
     @IsTest
     static void getProcessFlow_wrapsServiceException() {
-        ProcessFlowService.bypassAccessCheckForTests = true;
+        ToolingApiClient.bypassAccessCheckForTests = true;
 
         try {
             ProcessFlowController.getProcessFlow('Account', 'Wrong');
@@ -28,7 +28,7 @@ private with sharing class ProcessFlowControllerTest {
 
     @IsTest
     static void getProcessFlow_wrapsUnexpectedException() {
-        ProcessFlowService.bypassAccessCheckForTests = true;
+        ToolingApiClient.bypassAccessCheckForTests = true;
         Test.setMock(HttpCalloutMock.class, new ErrorControllerMock());
 
         try {

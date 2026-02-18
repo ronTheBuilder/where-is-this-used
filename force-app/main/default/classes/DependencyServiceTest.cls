@@ -140,10 +140,10 @@ private with sharing class DependencyServiceTest {
                 return '{"done":true,"totalSize":0,"records":[]}';
             }
 
-            if (soql.contains('FROM FlowVersionView') && soql.contains('FlowDefinitionView.ApiName !=')) {
+            if (soql.contains('FROM FlowVersionView')) {
                 return '{"done":true,"totalSize":2,"records":[' +
-                    '{"Id":"301A","FlowDefinitionView":{"ApiName":"Parent_One","Label":"Parent One"}},' +
-                    '{"Id":"301B","FlowDefinitionView":{"ApiName":"Parent_Two","Label":"Parent Two"}}' +
+                    '{"Id":"301A","ProcessType":"AutoLaunchedFlow","FlowDefinitionView":{"ApiName":"Parent_One","Label":"Parent One"}},' +
+                    '{"Id":"301B","ProcessType":"AutoLaunchedFlow","FlowDefinitionView":{"ApiName":"Parent_Two","Label":"Parent Two"}}' +
                 ']}';
             }
 

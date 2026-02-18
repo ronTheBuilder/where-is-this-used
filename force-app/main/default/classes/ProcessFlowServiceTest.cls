@@ -2,7 +2,7 @@
 private with sharing class ProcessFlowServiceTest {
     @IsTest
     static void getProcessFlow_returnsMultiplePhases() {
-        ProcessFlowService.bypassAccessCheckForTests = true;
+        ToolingApiClient.bypassAccessCheckForTests = true;
         Test.setMock(HttpCalloutMock.class, new ProcessFlowMock());
 
         Test.startTest();
@@ -48,7 +48,7 @@ private with sharing class ProcessFlowServiceTest {
 
     @IsTest
     static void getProcessFlow_deleteContext_filtersNonDeleteAutomations() {
-        ProcessFlowService.bypassAccessCheckForTests = true;
+        ToolingApiClient.bypassAccessCheckForTests = true;
         Test.setMock(HttpCalloutMock.class, new ProcessFlowMock());
 
         Test.startTest();
@@ -68,7 +68,7 @@ private with sharing class ProcessFlowServiceTest {
 
     @IsTest
     static void getProcessFlow_emptyObjectReturnsNoAutomations() {
-        ProcessFlowService.bypassAccessCheckForTests = true;
+        ToolingApiClient.bypassAccessCheckForTests = true;
         Test.setMock(HttpCalloutMock.class, new EmptyObjectMock());
 
         Test.startTest();
@@ -85,7 +85,7 @@ private with sharing class ProcessFlowServiceTest {
 
     @IsTest
     static void getProcessFlow_throwsForInvalidInput() {
-        ProcessFlowService.bypassAccessCheckForTests = true;
+        ToolingApiClient.bypassAccessCheckForTests = true;
 
         try {
             ProcessFlowService.getProcessFlow('Account;DROP', 'All');
@@ -104,7 +104,7 @@ private with sharing class ProcessFlowServiceTest {
 
     @IsTest
     static void getProcessFlow_throwsForToolingError() {
-        ProcessFlowService.bypassAccessCheckForTests = true;
+        ToolingApiClient.bypassAccessCheckForTests = true;
         Test.setMock(HttpCalloutMock.class, new ErrorMock());
 
         try {

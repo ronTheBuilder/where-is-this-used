@@ -4,9 +4,17 @@ public with sharing class DependencyController {
         try {
             return DependencyService.searchDependencies(metadataType, componentName);
         } catch (DependencyService.DependencyServiceException ex) {
-            throw new AuraHandledException(ex.getMessage());
+            AuraHandledException ahe = new AuraHandledException(ex.getMessage());
+
+            ahe.setMessage(ex.getMessage());
+
+            throw ahe;
         } catch (Exception ex) {
-            throw new AuraHandledException('Unexpected error while searching dependencies: ' + ex.getMessage());
+            AuraHandledException ahe = new AuraHandledException('Unexpected error while searching dependencies: ' + ex.getMessage());
+
+            ahe.setMessage('Unexpected error while searching dependencies: ' + ex.getMessage());
+
+            throw ahe;
         }
     }
 
@@ -20,9 +28,17 @@ public with sharing class DependencyController {
         try {
             return DependencyService.testConnection();
         } catch (DependencyService.DependencyServiceException ex) {
-            throw new AuraHandledException(ex.getMessage());
+            AuraHandledException ahe = new AuraHandledException(ex.getMessage());
+
+            ahe.setMessage(ex.getMessage());
+
+            throw ahe;
         } catch (Exception ex) {
-            throw new AuraHandledException('Unable to validate the Named Credential connection: ' + ex.getMessage());
+            AuraHandledException ahe = new AuraHandledException('Unable to validate the Named Credential connection: ' + ex.getMessage());
+
+            ahe.setMessage('Unable to validate the Named Credential connection: ' + ex.getMessage());
+
+            throw ahe;
         }
     }
 }

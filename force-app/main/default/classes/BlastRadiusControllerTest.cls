@@ -75,9 +75,9 @@ private with sharing class BlastRadiusControllerTest {
             String endpoint = req.getEndpoint();
             if (endpoint.contains('/query/?q=')) {
                 String soql = EncodingUtil.urlDecode(endpoint.substring(endpoint.indexOf('?q=') + 3), 'UTF-8');
-                if (soql.contains('RefMetadataComponentName = \'RootFlow\'')) {
+                if (soql.contains('RefMetadataComponentType = \'FlowDefinition\'')) {
                     response.setBody('{"done":true,"totalSize":1,"records":[' +
-                        '{"MetadataComponentId":"01pB","MetadataComponentName":"UsingClass","MetadataComponentType":"ApexClass"}' +
+                        '{"MetadataComponentId":"01pB","MetadataComponentName":"UsingClass","MetadataComponentType":"ApexClass","RefMetadataComponentName":"RootFlow"}' +
                     ']}');
                     return response;
                 }

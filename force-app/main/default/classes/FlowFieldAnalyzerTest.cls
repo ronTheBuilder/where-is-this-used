@@ -9,7 +9,7 @@ private with sharing class FlowFieldAnalyzerTest {
                 '"recordUpdates":[{"inputAssignments":[{"field":"Opportunity.Type","value":{"elementReference":"$Record.Industry"}}]}],' +
                 '"recordCreates":[{"inputAssignments":[{"field":"Case.Origin","value":{"stringValue":"Web"}}]}],' +
                 '"recordLookups":[{"filters":[{"field":"Account.Industry","operator":"EqualTo","value":{"elementReference":"$Record.Industry"}}]}],' +
-                '"formulas":[{"name":"f1","expression":"IF($Record.Industry=\"Tech\", Account.Region__c, Account.SLA__c)"}],' +
+                '"formulas":[{"name":"f1","expression":"IF($Record.Industry=\\"Tech\\", Account.Region__c, Account.SLA__c)"}],' +
                 '"subflows":[{"flowName":"Subflow_A"},{"flowName":"Subflow_B"}]' +
             '}'
         );

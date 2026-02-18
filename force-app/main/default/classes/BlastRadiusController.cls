@@ -8,9 +8,17 @@ public with sharing class BlastRadiusController {
         try {
             return BlastRadiusService.getBlastRadius(metadataType, componentName, maxDepth);
         } catch (BlastRadiusService.BlastRadiusServiceException ex) {
-            throw new AuraHandledException(ex.getMessage());
+            AuraHandledException ahe = new AuraHandledException(ex.getMessage());
+
+            ahe.setMessage(ex.getMessage());
+
+            throw ahe;
         } catch (Exception ex) {
-            throw new AuraHandledException('Unexpected error while resolving blast radius: ' + ex.getMessage());
+            AuraHandledException ahe = new AuraHandledException('Unexpected error while resolving blast radius: ' + ex.getMessage());
+
+            ahe.setMessage('Unexpected error while resolving blast radius: ' + ex.getMessage());
+
+            throw ahe;
         }
     }
 }
