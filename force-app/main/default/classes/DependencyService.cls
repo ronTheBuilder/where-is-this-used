@@ -72,6 +72,11 @@ public with sharing class DependencyService {
         }
         String trimmedName = componentName.trim();
 
+        // Standard Field: use ID-based query via FieldDefinition (Tooling API doesn't support RefMetadataComponentType = 'StandardEntity')
+        if (metadataType == 'Standard Field') {
+            return searchStandardFieldDependencies(trimmedName);
+        }
+
         // Validation Rule uses reverse query direction
         if (metadataType == 'Validation Rule') {
             return searchReverseDependencies(metadataType, trimmedName, refType);
@@ -169,7 +174,8 @@ public with sharing class DependencyService {
             return result.records;
         } catch (ToolingApiClient.ToolingApiClientException ex) {
             // If server-side filtering not supported, fall back to client-side
-            if (!ex.getMessage().contains('invalid') && !ex.getMessage().contains('400')) {
+            String msg = ex.getMessage().toLowerCase();
+            if (!msg.contains('invalid') && !msg.contains('400') && !msg.contains('not a supported type') && !msg.contains('not supported') && !msg.contains('unknown')) {
                 throw new DependencyServiceException(ex.getMessage());
             }
         }
@@ -404,6 +410,55 @@ public with sharing class DependencyService {
         HttpResponse response = ToolingApiClient.sendGet(ToolingApiClient.TOOLING_BASE_PATH + '/sobjects/Flow/' + flowVersionId);
         Map<String, Object> payload = ToolingApiClient.asMap(JSON.deserializeUntyped(response.getBody()));
         return ToolingApiClient.asMap(payload.get('Metadata'));
+    }
+
+    /**
+     * Standard fields are not queryable via RefMetadataComponentType.
+     * Instead, resolve the field's DurableId from FieldDefinition,
+     * then query MetadataComponentDependency by RefMetadataComponentId.
+     */
+    private static DependencySearchResponse searchStandardFieldDependencies(String componentName) {
+        String[] parts = componentName.split('\\.', 2);
+        if (parts.size() != 2) {
+            throw new DependencyServiceException('Standard field must be in format ObjectName.FieldName');
+        }
+        String objectName = String.escapeSingleQuotes(parts[0]);
+        String fieldName = String.escapeSingleQuotes(parts[1]);
+
+        // Step 1: Resolve DurableId from FieldDefinition
+        String fieldDefSoql =
+            'SELECT DurableId FROM FieldDefinition ' +
+            'WHERE EntityDefinition.QualifiedApiName = \'' + objectName + '\' ' +
+            'AND QualifiedApiName = \'' + fieldName + '\' LIMIT 1';
+
+        ToolingApiClient.ToolingQueryResponse fieldResult = ToolingApiClient.queryToolingRecords(fieldDefSoql, 1);
+        if (fieldResult.records.isEmpty()) {
+            throw new DependencyServiceException('Field not found: ' + componentName);
+        }
+
+        Map<String, Object> fieldRec = ToolingApiClient.asMap(fieldResult.records[0]);
+        String durableId = String.valueOf(fieldRec.get('DurableId'));
+
+        // Step 2: Query dependencies by RefMetadataComponentId
+        String depSoql =
+            'SELECT MetadataComponentId, MetadataComponentName, MetadataComponentType, ' +
+            'MetadataComponentNamespace, RefMetadataComponentName, RefMetadataComponentType ' +
+            'FROM MetadataComponentDependency ' +
+            'WHERE RefMetadataComponentId = \'' + String.escapeSingleQuotes(durableId) + '\'';
+
+        ToolingApiClient.ToolingQueryResponse depResult = ToolingApiClient.queryToolingRecords(depSoql, MAX_DEPENDENCY_ROWS);
+        List<DependencyRecord> flattened = parseDependencyRecords(depResult.records, componentName, 'StandardEntity');
+
+        DependencySearchResponse response = new DependencySearchResponse();
+        response.metadataType = 'Standard Field';
+        response.componentName = componentName;
+        response.totalCount = flattened.size();
+        response.limitReached = depResult.limitReached;
+        response.warningMessage = depResult.limitReached
+            ? 'Showing first 2,000 results. There may be additional dependencies not displayed.'
+            : null;
+        response.groups = groupByComponentType(flattened);
+        return response;
     }
 
     private static String getRefMetadataType(String metadataType) {
