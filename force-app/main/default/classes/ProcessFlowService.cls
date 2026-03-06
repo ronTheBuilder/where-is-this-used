@@ -282,13 +282,11 @@ public with sharing class ProcessFlowService {
             return;
         }
 
-        String soql =
-            'SELECT Id, Status, VersionNumber, FlowDefinitionView.ApiName, FlowDefinitionView.Label, TriggerObjectOrEvent, TriggerType ' +
-            'FROM FlowVersionView ' +
-            'WHERE ProcessType = \'AutoLaunchedFlow\' ' +
-            'AND Status = \'Active\'';
-
-        ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryToolingRecords(soql, MAX_FLOWS);
+        ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryFlowVersionsWithFallback(
+            'Status, VersionNumber, TriggerObjectOrEvent, TriggerType',
+            'ProcessType = \'AutoLaunchedFlow\' AND Status = \'Active\'',
+            MAX_FLOWS
+        );
         if (queryResponse.limitReached) {
             warnings.add('Showing first ' + MAX_FLOWS + ' record-triggered flows due to API safety limits.');
         }
@@ -535,9 +533,7 @@ public with sharing class ProcessFlowService {
     }
 
     private static Map<String, Object> getFlowMetadata(String flowVersionId) {
-        HttpResponse response = ToolingApiClient.sendGet(ToolingApiClient.TOOLING_BASE_PATH + '/sobjects/Flow/' + flowVersionId);
-        Map<String, Object> payload = ToolingApiClient.asMap(JSON.deserializeUntyped(response.getBody()));
-        return ToolingApiClient.asMap(payload.get('Metadata'));
+        return ToolingApiClient.getFlowMetadata(flowVersionId);
     }
 
 

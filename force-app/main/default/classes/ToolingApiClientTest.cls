@@ -19,17 +19,20 @@ private with sharing class ToolingApiClientTest {
     }
 
     @IsTest
-    static void sendGet_retriesOn429AndSucceeds() {
+    static void sendGet_throwsOn429WithoutRetry() {
         ToolingApiClient.bypassAccessCheckForTests = true;
         Retry429ThenSuccessMock mock = new Retry429ThenSuccessMock();
         Test.setMock(HttpCalloutMock.class, mock);
 
-        Test.startTest();
-        HttpResponse response = ToolingApiClient.sendGet('/services/data/v65.0/tooling/query/?q=SELECT+Id+FROM+Org');
-        Test.stopTest();
-
-        System.assertEquals(200, response.getStatusCode());
-        System.assertEquals(2, mock.callCount);
+        try {
+            Test.startTest();
+            ToolingApiClient.sendGet('/services/data/v66.0/tooling/query/?q=SELECT+Id+FROM+Org');
+            Test.stopTest();
+            System.assert(false, 'Expected a 429 exception.');
+        } catch (ToolingApiClient.ToolingApiClientException ex) {
+            System.assert(ex.getMessage().contains('rate limit'));
+            System.assertEquals(1, mock.callCount);
+        }
     }
 
     @IsTest
@@ -40,7 +43,7 @@ private with sharing class ToolingApiClientTest {
 
         try {
             Test.startTest();
-            ToolingApiClient.sendGet('/services/data/v65.0/tooling/query/?q=SELECT+Id+FROM+Org');
+            ToolingApiClient.sendGet('/services/data/v66.0/tooling/query/?q=SELECT+Id+FROM+Org');
             Test.stopTest();
             System.assert(false, 'Expected a 503 exception after retries.');
         } catch (ToolingApiClient.ToolingApiClientException ex) {
@@ -56,7 +59,7 @@ private with sharing class ToolingApiClientTest {
 
         try {
             Test.startTest();
-            ToolingApiClient.sendGet('/services/data/v65.0/tooling/query/?q=bad');
+            ToolingApiClient.sendGet('/services/data/v66.0/tooling/query/?q=bad');
             Test.stopTest();
             System.assert(false, 'Expected a 400 exception.');
         } catch (ToolingApiClient.ToolingApiClientException ex) {
@@ -70,8 +73,8 @@ private with sharing class ToolingApiClientTest {
 
         ToolingApiClient.validateComponentName('Account.MyField__c');
         System.assertEquals(
-            'callout:WITU_ToolingAPI/services/data/v65.0/tooling/query/01gNEXT',
-            ToolingApiClient.resolveEndpoint('/services/data/v65.0/tooling/query/01gNEXT')
+            'callout:WITU_ToolingAPI/services/data/v66.0/tooling/query/01gNEXT',
+            ToolingApiClient.resolveEndpoint('/services/data/v66.0/tooling/query/01gNEXT')
         );
 
         Map<String, Object> sourceMap = new Map<String, Object>{ 'k' => 'v' };
@@ -93,6 +96,66 @@ private with sharing class ToolingApiClientTest {
         }
     }
 
+    @IsTest
+    static void getFlowMetadata_returnsMetadataMap() {
+        ToolingApiClient.bypassAccessCheckForTests = true;
+        Test.setMock(HttpCalloutMock.class, new FlowMetadataMock());
+
+        Test.startTest();
+        Map<String, Object> metadata = ToolingApiClient.getFlowMetadata('301TEST');
+        Test.stopTest();
+
+        System.assertNotEquals(null, metadata);
+        System.assertEquals(true, metadata.containsKey('subflows'));
+    }
+
+    @IsTest
+    static void getFlowMetadata_returnsNullForEmptyPayload() {
+        ToolingApiClient.bypassAccessCheckForTests = true;
+        Test.setMock(HttpCalloutMock.class, new EmptyFlowMetadataMock());
+
+        Test.startTest();
+        Map<String, Object> metadata = ToolingApiClient.getFlowMetadata('301EMPTY');
+        Test.stopTest();
+
+        System.assertEquals(null, metadata);
+    }
+
+    @IsTest
+    static void queryDependenciesWithNameFallback_serverSideSuccess() {
+        ToolingApiClient.bypassAccessCheckForTests = true;
+        Test.setMock(HttpCalloutMock.class, new DependencyFallbackMock(false));
+
+        Test.startTest();
+        ToolingApiClient.ToolingQueryResponse result = ToolingApiClient.queryDependenciesWithNameFallback(
+            'MetadataComponentId, MetadataComponentName, MetadataComponentType, RefMetadataComponentName',
+            'CustomField',
+            'Account.MyField__c',
+            2000
+        );
+        Test.stopTest();
+
+        // Server-side filter succeeded — mock returns 2 records (real API would filter to 1)
+        System.assertEquals(2, result.records.size());
+    }
+
+    @IsTest
+    static void queryDependenciesWithNameFallback_fallsBackToClientSide() {
+        ToolingApiClient.bypassAccessCheckForTests = true;
+        Test.setMock(HttpCalloutMock.class, new DependencyFallbackMock(true));
+
+        Test.startTest();
+        ToolingApiClient.ToolingQueryResponse result = ToolingApiClient.queryDependenciesWithNameFallback(
+            'MetadataComponentId, MetadataComponentName, MetadataComponentType, RefMetadataComponentName',
+            'CustomField',
+            'Account.MyField__c',
+            2000
+        );
+        Test.stopTest();
+
+        System.assertEquals(1, result.records.size());
+    }
+
     private class QueryPaginationMock implements HttpCalloutMock {
         public HttpResponse respond(HttpRequest req) {
             HttpResponse response = new HttpResponse();
@@ -101,13 +164,13 @@ private with sharing class ToolingApiClientTest {
 
             if (req.getEndpoint().contains('/query/01gNEXT')) {
                 response.setBody(
-                    '{"done":false,"totalSize":5,"nextRecordsUrl":"/services/data/v65.0/tooling/query/01gMORE","records":[{"Id":"03"},{"Id":"04"},{"Id":"05"}]}'
+                    '{"done":false,"totalSize":5,"nextRecordsUrl":"/services/data/v66.0/tooling/query/01gMORE","records":[{"Id":"03"},{"Id":"04"},{"Id":"05"}]}'
                 );
                 return response;
             }
 
             response.setBody(
-                '{"done":false,"totalSize":5,"nextRecordsUrl":"/services/data/v65.0/tooling/query/01gNEXT","records":[{"Id":"01"},{"Id":"02"}]}'
+                '{"done":false,"totalSize":5,"nextRecordsUrl":"/services/data/v66.0/tooling/query/01gNEXT","records":[{"Id":"01"},{"Id":"02"}]}'
             );
             return response;
         }
@@ -152,6 +215,60 @@ private with sharing class ToolingApiClientTest {
             response.setStatusCode(400);
             response.setHeader('Content-Type', 'application/json');
             response.setBody('[{"message":"Invalid query filter","errorCode":"MALFORMED_QUERY"}]');
+            return response;
+        }
+    }
+
+    private class FlowMetadataMock implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest req) {
+            HttpResponse response = new HttpResponse();
+            response.setStatusCode(200);
+            response.setHeader('Content-Type', 'application/json');
+            response.setBody('{"Metadata":{"subflows":[{"flowName":"SubFlow1"}]}}');
+            return response;
+        }
+    }
+
+    private class EmptyFlowMetadataMock implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest req) {
+            HttpResponse response = new HttpResponse();
+            response.setStatusCode(200);
+            response.setHeader('Content-Type', 'application/json');
+            response.setBody('{}');
+            return response;
+        }
+    }
+
+    private class DependencyFallbackMock implements HttpCalloutMock {
+        private final Boolean failServerSide;
+        private Integer callCount = 0;
+
+        DependencyFallbackMock(Boolean failServerSide) {
+            this.failServerSide = failServerSide;
+        }
+
+        public HttpResponse respond(HttpRequest req) {
+            callCount++;
+            HttpResponse response = new HttpResponse();
+            response.setHeader('Content-Type', 'application/json');
+
+            String endpoint = req.getEndpoint();
+            String soql = '';
+            if (endpoint.contains('?q=')) {
+                soql = EncodingUtil.urlDecode(endpoint.substring(endpoint.indexOf('?q=') + 3), 'UTF-8');
+            }
+
+            if (failServerSide && soql.contains('RefMetadataComponentName')) {
+                response.setStatusCode(400);
+                response.setBody('[{"message":"Invalid query filter","errorCode":"MALFORMED_QUERY"}]');
+                return response;
+            }
+
+            response.setStatusCode(200);
+            response.setBody('{"done":true,"totalSize":2,"records":[' +
+                '{"MetadataComponentId":"01pA","MetadataComponentName":"ClassA","MetadataComponentType":"ApexClass","RefMetadataComponentName":"Account.MyField__c"},' +
+                '{"MetadataComponentId":"01pB","MetadataComponentName":"ClassB","MetadataComponentType":"ApexClass","RefMetadataComponentName":"Account.Other__c"}' +
+            ']}');
             return response;
         }
     }

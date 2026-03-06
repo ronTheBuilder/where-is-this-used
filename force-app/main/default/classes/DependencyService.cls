@@ -4,13 +4,20 @@ public with sharing class DependencyService {
 
     public class DependencyServiceException extends Exception {}
 
-    public class MetadataOption {
+    public class MetadataOption implements Comparable {
         @AuraEnabled public String label;
         @AuraEnabled public String value;
 
         public MetadataOption(String label, String value) {
             this.label = label;
             this.value = value;
+        }
+
+        public Integer compareTo(Object other) {
+            MetadataOption o = (MetadataOption) other;
+            String a = label == null ? '' : label.toLowerCase();
+            String b = o.label == null ? '' : o.label.toLowerCase();
+            return a.compareTo(b);
         }
     }
 
@@ -148,62 +155,26 @@ public with sharing class DependencyService {
         return response;
     }
 
-    /**
-     * Try server-side RefMetadataComponentName filter first.
-     * If 400 error, fall back to client-side filtering.
-     */
     private static List<Object> queryDependenciesWithFallback(String refType, String componentName) {
-        String escapedRefType = String.escapeSingleQuotes(refType);
-        String escapedName = String.escapeSingleQuotes(componentName);
+        String selectFields =
+            'MetadataComponentId, MetadataComponentName, MetadataComponentType, MetadataComponentNamespace, ' +
+            'RefMetadataComponentName, RefMetadataComponentType';
 
-        // Try server-side filter first
         try {
-            String soqlWithName =
-                'SELECT MetadataComponentId, MetadataComponentName, MetadataComponentType, MetadataComponentNamespace, ' +
-                'RefMetadataComponentName, RefMetadataComponentType ' +
-                'FROM MetadataComponentDependency ' +
-                'WHERE RefMetadataComponentType = \'' + escapedRefType + '\' ' +
-                'AND RefMetadataComponentName = \'' + escapedName + '\'';
-
-            ToolingApiClient.ToolingQueryResponse result = ToolingApiClient.queryToolingRecords(soqlWithName, MAX_DEPENDENCY_ROWS);
+            ToolingApiClient.ToolingQueryResponse result = ToolingApiClient.queryDependenciesWithNameFallback(
+                selectFields, refType, componentName, MAX_DEPENDENCY_ROWS
+            );
             return result.records;
         } catch (ToolingApiClient.ToolingApiClientException ex) {
-            // If server-side filtering not supported, fall back to client-side
-            if (!ex.getMessage().contains('invalid') && !ex.getMessage().contains('400')) {
-                throw new DependencyServiceException(ex.getMessage());
-            }
+            throw new DependencyServiceException(ex.getMessage());
         }
-
-        // Fallback: client-side filtering
-        String soqlWithoutName =
-            'SELECT MetadataComponentId, MetadataComponentName, MetadataComponentType, MetadataComponentNamespace, ' +
-            'RefMetadataComponentName, RefMetadataComponentType ' +
-            'FROM MetadataComponentDependency ' +
-            'WHERE RefMetadataComponentType = \'' + escapedRefType + '\'';
-
-        ToolingApiClient.ToolingQueryResponse result = ToolingApiClient.queryToolingRecords(soqlWithoutName, MAX_DEPENDENCY_ROWS);
-
-        List<Object> filtered = new List<Object>();
-        for (Object recordObj : result.records) {
-            Map<String, Object> row = ToolingApiClient.asMap(recordObj);
-            if (row == null) continue;
-            String refName = String.valueOf(row.get('RefMetadataComponentName'));
-            if (refName != null && refName.equalsIgnoreCase(componentName)) {
-                filtered.add(recordObj);
-            }
-        }
-        return filtered;
     }
 
     public static List<MetadataOption> getActiveFlows() {
         ToolingApiClient.enforceAccess();
-        // Bug fix: removed FlowDefinitionView.ApiName from WHERE/ORDER BY, filter client-side
-        // Bug fix: added ProcessType filter to exclude Screen Flows for subflow detection
-        String soql =
-            'SELECT Id, FlowDefinitionView.ApiName, FlowDefinitionView.Label ' +
-            'FROM FlowVersionView ' +
-            'WHERE Status = \'Active\'';
-        ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
+        ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryFlowVersionsWithFallback(
+            null, 'Status = \'Active\'', MAX_DEPENDENCY_ROWS
+        );
 
         Map<String, MetadataOption> unique = new Map<String, MetadataOption>();
         for (Object recordObj : queryResponse.records) {
@@ -347,14 +318,9 @@ public with sharing class DependencyService {
         ToolingApiClient.validateComponentName(flowApiName);
         String trimmedName = flowApiName.trim();
 
-        // Bug fix: removed WHERE filter on FlowDefinitionView.ApiName (not filterable on all orgs)
-        // Bug fix: added ProcessType filter to exclude Screen Flows
-        String soql =
-            'SELECT Id, FlowDefinitionView.ApiName, FlowDefinitionView.Label, ProcessType ' +
-            'FROM FlowVersionView ' +
-            'WHERE Status = \'Active\'';
-
-        ToolingApiClient.ToolingQueryResponse flowQuery = ToolingApiClient.queryToolingRecords(soql, MAX_FLOW_SCAN);
+        ToolingApiClient.ToolingQueryResponse flowQuery = ToolingApiClient.queryFlowVersionsWithFallback(
+            'ProcessType', 'Status = \'Active\'', MAX_FLOW_SCAN
+        );
         List<DependencyRecord> subflowRecords = new List<DependencyRecord>();
 
         for (Object recordObj : flowQuery.records) {
@@ -376,7 +342,7 @@ public with sharing class DependencyService {
             // Bug fix: wrap in try/catch to handle corrupted flow metadata
             Map<String, Object> flowMetadata;
             try {
-                flowMetadata = getFlowMetadata(flowVersionId);
+                flowMetadata = ToolingApiClient.getFlowMetadata(flowVersionId);
             } catch (Exception ex) {
                 System.debug(LoggingLevel.WARN, 'Skipping flow ' + parentApiName + ': ' + ex.getMessage());
                 continue;
@@ -398,12 +364,6 @@ public with sharing class DependencyService {
         }
 
         return subflowRecords;
-    }
-
-    private static Map<String, Object> getFlowMetadata(String flowVersionId) {
-        HttpResponse response = ToolingApiClient.sendGet(ToolingApiClient.TOOLING_BASE_PATH + '/sobjects/Flow/' + flowVersionId);
-        Map<String, Object> payload = ToolingApiClient.asMap(JSON.deserializeUntyped(response.getBody()));
-        return ToolingApiClient.asMap(payload.get('Metadata'));
     }
 
     private static String getRefMetadataType(String metadataType) {

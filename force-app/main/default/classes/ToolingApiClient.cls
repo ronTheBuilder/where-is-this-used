@@ -1,6 +1,6 @@
 public with sharing class ToolingApiClient {
     public static final String NAMED_CREDENTIAL = 'callout:WITU_ToolingAPI';
-    public static final String TOOLING_BASE_PATH = '/services/data/v65.0/tooling';
+    public static final String TOOLING_BASE_PATH = '/services/data/v66.0/tooling';
 
     private static final String CUSTOM_PERMISSION = 'WITU_Access';
     private static final Integer MAX_COMPONENT_NAME_LENGTH = 255;
@@ -115,7 +115,9 @@ public with sharing class ToolingApiClient {
             }
 
             System.debug(LoggingLevel.ERROR, 'Tooling API error (' + status + '): ' + response.getBody());
-            if ((status == 429 || status == 503) && attempt < MAX_RETRY_ATTEMPTS) {
+            // Retry only on 503 (server unavailable); 429 (rate limit) cannot benefit from
+            // immediate retry since Apex has no Thread.sleep() for backoff.
+            if (status == 503 && attempt < MAX_RETRY_ATTEMPTS) {
                 continue;
             }
 
@@ -175,6 +177,138 @@ public with sharing class ToolingApiClient {
             return 'Tooling API is temporarily unavailable. Please wait a moment and try again.';
         }
         return 'Tooling API request failed (HTTP ' + status + '). Check Setup > Debug Logs for details.';
+    }
+
+    /**
+     * Retrieve flow metadata for a given FlowVersionView Id.
+     * Null-safe: returns null if the response or Metadata key is absent.
+     */
+    public static Map<String, Object> getFlowMetadata(String flowVersionId) {
+        HttpResponse response = sendGet(TOOLING_BASE_PATH + '/sobjects/Flow/' + flowVersionId);
+        Map<String, Object> payload = asMap(JSON.deserializeUntyped(response.getBody()));
+        return payload == null ? null : asMap(payload.get('Metadata'));
+    }
+
+    /**
+     * Query FlowVersionView with FlowDefinitionView relationship fields.
+     * Falls back to a separate FlowDefinitionView lookup if the relationship
+     * traversal is not supported on the current org.
+     *
+     * @param additionalFields Extra fields beyond Id (e.g. 'ProcessType, TriggerObjectOrEvent, TriggerType, Status, VersionNumber'). May be null.
+     * @param whereClause      WHERE clause without the WHERE keyword (e.g. 'Status = \'Active\'')
+     * @param maxRows          Maximum rows to return
+     */
+    public static ToolingQueryResponse queryFlowVersionsWithFallback(String additionalFields, String whereClause, Integer maxRows) {
+        String relFields = 'Id, FlowDefinitionView.ApiName, FlowDefinitionView.Label';
+        if (String.isNotBlank(additionalFields)) {
+            relFields += ', ' + additionalFields;
+        }
+
+        String soql = 'SELECT ' + relFields + ' FROM FlowVersionView WHERE ' + whereClause;
+        try {
+            return queryToolingRecords(soql, maxRows);
+        } catch (ToolingApiClientException ex) {
+            // Only fall back if the error is query-related (400 / invalid)
+            if (!ex.getMessage().contains('invalid') && !ex.getMessage().contains('400') && !ex.getMessage().contains('not found')) {
+                throw ex;
+            }
+        }
+
+        // Fallback: query without relationship fields, enrich with FlowDefinitionView
+        String fallbackFields = 'Id';
+        if (String.isNotBlank(additionalFields)) {
+            fallbackFields += ', ' + additionalFields;
+        }
+
+        String fallbackSoql = 'SELECT ' + fallbackFields + ' FROM FlowVersionView WHERE ' + whereClause;
+        ToolingQueryResponse result = queryToolingRecords(fallbackSoql, maxRows);
+
+        // Build lookup from FlowDefinitionView: ActiveVersionId -> {ApiName, Label}
+        ToolingQueryResponse defResult = queryToolingRecords(
+            'SELECT ApiName, Label, ActiveVersionId FROM FlowDefinitionView WHERE IsActive = true',
+            maxRows
+        );
+
+        Map<String, Map<String, String>> defLookup = new Map<String, Map<String, String>>();
+        for (Object rec : defResult.records) {
+            Map<String, Object> row = asMap(rec);
+            if (row == null) continue;
+            String activeVersionId = row.get('ActiveVersionId') == null ? null : String.valueOf(row.get('ActiveVersionId'));
+            if (String.isBlank(activeVersionId)) continue;
+            defLookup.put(activeVersionId, new Map<String, String>{
+                'ApiName' => row.get('ApiName') == null ? null : String.valueOf(row.get('ApiName')),
+                'Label' => row.get('Label') == null ? null : String.valueOf(row.get('Label'))
+            });
+        }
+
+        // Enrich FlowVersionView records with FlowDefinitionView data
+        for (Object rec : result.records) {
+            Map<String, Object> row = asMap(rec);
+            if (row == null) continue;
+            String versionId = row.get('Id') == null ? null : String.valueOf(row.get('Id'));
+            if (String.isBlank(versionId) || !defLookup.containsKey(versionId)) continue;
+            Map<String, String> def = defLookup.get(versionId);
+            row.put('FlowDefinitionView', new Map<String, Object>{
+                'ApiName' => def.get('ApiName'),
+                'Label' => def.get('Label')
+            });
+        }
+
+        return result;
+    }
+
+    /**
+     * Query MetadataComponentDependency with server-side RefMetadataComponentName
+     * filtering when available, falling back to client-side filtering.
+     *
+     * @param selectFields  SELECT clause fields
+     * @param refType       RefMetadataComponentType value
+     * @param componentName RefMetadataComponentName to filter on
+     * @param maxRows       Maximum rows to return
+     */
+    public static ToolingQueryResponse queryDependenciesWithNameFallback(
+        String selectFields,
+        String refType,
+        String componentName,
+        Integer maxRows
+    ) {
+        String escapedRefType = String.escapeSingleQuotes(refType);
+        String escapedName = String.escapeSingleQuotes(componentName);
+
+        // Try server-side filter first
+        try {
+            String soql =
+                'SELECT ' + selectFields +
+                ' FROM MetadataComponentDependency' +
+                ' WHERE RefMetadataComponentType = \'' + escapedRefType + '\'' +
+                ' AND RefMetadataComponentName = \'' + escapedName + '\'';
+
+            return queryToolingRecords(soql, maxRows);
+        } catch (ToolingApiClientException ex) {
+            if (!ex.getMessage().contains('invalid') && !ex.getMessage().contains('400')) {
+                throw ex;
+            }
+        }
+
+        // Fallback: client-side filtering
+        String soql =
+            'SELECT ' + selectFields +
+            ' FROM MetadataComponentDependency' +
+            ' WHERE RefMetadataComponentType = \'' + escapedRefType + '\'';
+
+        ToolingQueryResponse result = queryToolingRecords(soql, maxRows);
+
+        List<Object> filtered = new List<Object>();
+        for (Object recordObj : result.records) {
+            Map<String, Object> row = asMap(recordObj);
+            if (row == null) continue;
+            String refName = row.get('RefMetadataComponentName') == null ? null : String.valueOf(row.get('RefMetadataComponentName'));
+            if (refName != null && refName.equalsIgnoreCase(componentName)) {
+                filtered.add(recordObj);
+            }
+        }
+        result.records = filtered;
+        return result;
     }
 
     private static String parseErrorBodyMessage(String responseBody) {

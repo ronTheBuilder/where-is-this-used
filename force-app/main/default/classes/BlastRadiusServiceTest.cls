@@ -214,10 +214,13 @@ private with sharing class BlastRadiusServiceTest {
         }
 
         private String cycleResponse(String soql) {
-            if (soql.contains('RefMetadataComponentType = \'FlowDefinition\'') || soql.contains('RefMetadataComponentType = \'Flow\'')) {
-                // Return both; CycleRoot uses FlowDefinition type to match root key
-                return '{"done":true,"totalSize":2,"records":[' +
-                    '{"MetadataComponentId":"301CC","MetadataComponentName":"CycleChild","MetadataComponentType":"Flow","RefMetadataComponentName":"CycleRoot"},' +
+            if (soql.contains('CycleRoot')) {
+                return '{"done":true,"totalSize":1,"records":[' +
+                    '{"MetadataComponentId":"301CC","MetadataComponentName":"CycleChild","MetadataComponentType":"Flow","RefMetadataComponentName":"CycleRoot"}' +
+                ']}';
+            }
+            if (soql.contains('CycleChild')) {
+                return '{"done":true,"totalSize":1,"records":[' +
                     '{"MetadataComponentId":"301CR","MetadataComponentName":"CycleRoot","MetadataComponentType":"FlowDefinition","RefMetadataComponentName":"CycleChild"}' +
                 ']}';
             }
@@ -225,10 +228,21 @@ private with sharing class BlastRadiusServiceTest {
         }
 
         private String depthResponse(String soql) {
-            if (soql.contains('RefMetadataComponentType = \'FlowDefinition\'') || soql.contains('RefMetadataComponentType = \'Flow\'')) {
-                return '{"done":true,"totalSize":3,"records":[' +
-                    '{"MetadataComponentId":"301D1","MetadataComponentName":"DepthL1","MetadataComponentType":"Flow","RefMetadataComponentName":"DepthRoot"},' +
-                    '{"MetadataComponentId":"301D2","MetadataComponentName":"DepthL2","MetadataComponentType":"Flow","RefMetadataComponentName":"DepthL1"},' +
+            if (!soql.contains('RefMetadataComponentType = \'FlowDefinition\'') && !soql.contains('RefMetadataComponentType = \'Flow\'')) {
+                return '{"done":true,"totalSize":0,"records":[]}';
+            }
+            if (soql.contains('DepthRoot')) {
+                return '{"done":true,"totalSize":1,"records":[' +
+                    '{"MetadataComponentId":"301D1","MetadataComponentName":"DepthL1","MetadataComponentType":"Flow","RefMetadataComponentName":"DepthRoot"}' +
+                ']}';
+            }
+            if (soql.contains('DepthL1')) {
+                return '{"done":true,"totalSize":1,"records":[' +
+                    '{"MetadataComponentId":"301D2","MetadataComponentName":"DepthL2","MetadataComponentType":"Flow","RefMetadataComponentName":"DepthL1"}' +
+                ']}';
+            }
+            if (soql.contains('DepthL2')) {
+                return '{"done":true,"totalSize":1,"records":[' +
                     '{"MetadataComponentId":"301D3","MetadataComponentName":"DepthL3","MetadataComponentType":"Flow","RefMetadataComponentName":"DepthL2"}' +
                 ']}';
             }

@@ -171,15 +171,13 @@ public with sharing class BlastRadiusService {
     private static List<ComponentRef> fetchDependents(ComponentRef component, Integer nextDepth, GraphContext context) {
         context.apiCalls++;
 
-        // Removed ORDER BY (not reliably supported on MetadataComponentDependency)
-        String soql =
-            'SELECT MetadataComponentId, MetadataComponentName, MetadataComponentType, RefMetadataComponentName ' +
-            'FROM MetadataComponentDependency ' +
-            'WHERE RefMetadataComponentType = \'' + String.escapeSingleQuotes(component.type) + '\'';
+        String selectFields = 'MetadataComponentId, MetadataComponentName, MetadataComponentType, RefMetadataComponentName';
 
         ToolingApiClient.ToolingQueryResponse queryResponse;
         try {
-            queryResponse = ToolingApiClient.queryToolingRecords(soql, 2000);
+            queryResponse = ToolingApiClient.queryDependenciesWithNameFallback(
+                selectFields, component.type, component.name, 2000
+            );
         } catch (ToolingApiClient.ToolingApiClientException ex) {
             throw new BlastRadiusServiceException(ex.getMessage());
         }
@@ -188,12 +186,6 @@ public with sharing class BlastRadiusService {
         for (Object recordObj : queryResponse.records) {
             Map<String, Object> row = ToolingApiClient.asMap(recordObj);
             if (row == null) {
-                continue;
-            }
-
-            // Client-side filter by name
-            String refName = String.valueOf(row.get('RefMetadataComponentName'));
-            if (refName == null || !refName.equalsIgnoreCase(component.name)) {
                 continue;
             }
 
