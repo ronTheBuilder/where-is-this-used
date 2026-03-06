@@ -3,8 +3,27 @@ import getMetadataTypes from '@salesforce/apex/DependencyController.getMetadataT
 import getObjects from '@salesforce/apex/MetadataPickerController.getObjects';
 import getFields from '@salesforce/apex/MetadataPickerController.getFields';
 import getFlows from '@salesforce/apex/MetadataPickerController.getFlows';
+import getAllFlows from '@salesforce/apex/MetadataPickerController.getAllFlows';
 import getApexClasses from '@salesforce/apex/MetadataPickerController.getApexClasses';
 import searchDependencies from '@salesforce/apex/DependencyController.searchDependencies';
+
+// Suffixes/patterns for non-business objects (history tracking, sharing, feeds, etc.)
+const NOISE_SUFFIXES = ['changeevent', 'history', 'share', 'feed', 'tag'];
+
+function isNoiseObject(apiName) {
+    if (!apiName) return false;
+    const lower = apiName.toLowerCase();
+    // Custom objects (__c) are never noise
+    if (lower.endsWith('__c')) return false;
+    // Platform events & custom metadata handled by their own pickers
+    if (lower.endsWith('__e') || lower.endsWith('__mdt') || lower.endsWith('__b')) return true;
+    // Standard & custom object system children
+    for (const suffix of NOISE_SUFFIXES) {
+        if (lower.endsWith(suffix)) return true;
+        if (lower.endsWith('__' + suffix)) return true;
+    }
+    return false;
+}
 
 export default class MetadataPicker extends LightningElement {
     @track metadataType = '';
@@ -15,9 +34,28 @@ export default class MetadataPicker extends LightningElement {
     @track componentOptions = [];
     @track isSearchDisabled = true;
 
+    // Filter toggles
+    @track hideNoiseObjects = true;
+    @track activeFlowsOnly = true;
+
+    // Raw unfiltered data
+    _allObjectOptions = [];
+    _allFlowOptions = [];
+    _activeFlowOptions = [];
+
     // Show object picker for field types
     get showObjectPicker() {
         return this.metadataType === 'Standard Field' || this.metadataType === 'Custom Field';
+    }
+
+    // Show the object filter toggle
+    get showObjectFilter() {
+        return this.showObjectPicker && this._allObjectOptions.length > 0;
+    }
+
+    // Show the flow filter toggle
+    get showFlowFilter() {
+        return this.metadataType === 'Flow';
     }
 
     // Show component picker (field, flow, or class)
@@ -30,6 +68,16 @@ export default class MetadataPicker extends LightningElement {
         if (this.metadataType === 'Flow') return 'Flow';
         if (this.metadataType === 'Apex Class') return 'Apex Class';
         return 'Component';
+    }
+
+    get objectFilterLabel() {
+        const total = this._allObjectOptions.length;
+        const shown = this.objectOptions.length;
+        return `Hide system objects (${shown}/${total})`;
+    }
+
+    get flowFilterLabel() {
+        return 'Active flows only';
     }
 
     @wire(getMetadataTypes)
@@ -74,10 +122,49 @@ export default class MetadataPicker extends LightningElement {
         this.updateSearchState();
     }
 
+    handleObjectFilterToggle(event) {
+        this.hideNoiseObjects = event.target.checked;
+        this.applyObjectFilter();
+        // Reset selection if current object is now hidden
+        if (this.selectedObject && !this.objectOptions.find(o => o.value === this.selectedObject)) {
+            this.selectedObject = '';
+            this.selectedComponent = '';
+            this.componentOptions = [];
+            this.updateSearchState();
+        }
+    }
+
+    handleFlowFilterToggle(event) {
+        this.activeFlowsOnly = event.target.checked;
+        this.applyFlowFilter();
+        // Reset selection if current flow is now hidden
+        if (this.selectedComponent && !this.componentOptions.find(o => o.value === this.selectedComponent)) {
+            this.selectedComponent = '';
+            this.updateSearchState();
+        }
+    }
+
+    applyObjectFilter() {
+        if (this.hideNoiseObjects) {
+            this.objectOptions = this._allObjectOptions.filter(o => !isNoiseObject(o.value));
+        } else {
+            this.objectOptions = [...this._allObjectOptions];
+        }
+    }
+
+    applyFlowFilter() {
+        if (this.activeFlowsOnly) {
+            this.componentOptions = [...this._activeFlowOptions];
+        } else {
+            this.componentOptions = [...this._allFlowOptions];
+        }
+    }
+
     async loadObjects() {
         try {
             const data = await getObjects();
-            this.objectOptions = data.map(o => ({ label: o.label, value: o.value }));
+            this._allObjectOptions = data.map(o => ({ label: o.label, value: o.value }));
+            this.applyObjectFilter();
         } catch (error) {
             this.fireError('Failed to load objects: ' + this.reduceError(error));
         }
@@ -86,7 +173,6 @@ export default class MetadataPicker extends LightningElement {
     async loadFields(objectName) {
         try {
             const data = await getFields({ objectName });
-            // Filter based on metadata type selection
             const typeFilter = this.metadataType;
             this.componentOptions = data
                 .filter(f => f.metadataType === typeFilter)
@@ -98,8 +184,20 @@ export default class MetadataPicker extends LightningElement {
 
     async loadFlows() {
         try {
-            const data = await getFlows();
-            this.componentOptions = data.map(f => ({ label: f.label, value: f.value }));
+            // Load active flows
+            const activeData = await getFlows();
+            this._activeFlowOptions = activeData.map(f => ({ label: f.label, value: f.value }));
+
+            // Load all flows (with status in label)
+            try {
+                const allData = await getAllFlows();
+                this._allFlowOptions = allData.map(f => ({ label: f.label, value: f.value }));
+            } catch (err) {
+                // Fallback: all = active if getAllFlows fails
+                this._allFlowOptions = [...this._activeFlowOptions];
+            }
+
+            this.applyFlowFilter();
         } catch (error) {
             this.fireError('Failed to load flows: ' + this.reduceError(error));
         }

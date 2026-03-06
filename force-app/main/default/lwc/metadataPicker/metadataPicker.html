@@ -49,4 +49,28 @@
             </lightning-button>
         </div>
     </div>
+
+    <!-- Filter toggles -->
+    <template if:true={showObjectFilter}>
+        <div class="slds-m-bottom_small">
+            <lightning-input
+                type="checkbox"
+                label={objectFilterLabel}
+                checked={hideNoiseObjects}
+                onchange={handleObjectFilterToggle}
+                variant="label-inline">
+            </lightning-input>
+        </div>
+    </template>
+    <template if:true={showFlowFilter}>
+        <div class="slds-m-bottom_small">
+            <lightning-input
+                type="checkbox"
+                label={flowFilterLabel}
+                checked={activeFlowsOnly}
+                onchange={handleFlowFilterToggle}
+                variant="label-inline">
+            </lightning-input>
+        </div>
+    </template>
 </template>

@@ -93,6 +93,21 @@ public with sharing class MetadataPickerController {
     }
 
     @AuraEnabled(cacheable=true)
+    public static List<DependencyService.MetadataOption> getAllFlows() {
+        try {
+            return DependencyService.getAllFlows();
+        } catch (DependencyService.DependencyServiceException ex) {
+            AuraHandledException ahe = new AuraHandledException(ex.getMessage());
+            ahe.setMessage(ex.getMessage());
+            throw ahe;
+        } catch (Exception ex) {
+            AuraHandledException ahe = new AuraHandledException('Unable to load flows: ' + ex.getMessage());
+            ahe.setMessage('Unable to load flows: ' + ex.getMessage());
+            throw ahe;
+        }
+    }
+
+    @AuraEnabled(cacheable=true)
     public static List<DependencyService.MetadataOption> getApexClasses() {
         try {
             return DependencyService.getApexClasses();

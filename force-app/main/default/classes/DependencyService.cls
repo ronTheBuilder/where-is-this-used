@@ -198,6 +198,46 @@ public with sharing class DependencyService {
         return options;
     }
 
+    public static List<MetadataOption> getAllFlows() {
+        ToolingApiClient.enforceAccess();
+        ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryFlowVersionsWithFallback(
+            'Status, VersionNumber',
+            'Status IN (\'Active\', \'Draft\', \'Obsolete\', \'InvalidDraft\')',
+            MAX_DEPENDENCY_ROWS
+        );
+
+        // Deduplicate by ApiName — prefer Active version; include status in label
+        Map<String, MetadataOption> unique = new Map<String, MetadataOption>();
+        Map<String, String> bestStatus = new Map<String, String>();
+
+        for (Object recordObj : queryResponse.records) {
+            Map<String, Object> record = ToolingApiClient.asMap(recordObj);
+            Map<String, Object> flowDefView = ToolingApiClient.asMap(record.get('FlowDefinitionView'));
+            if (flowDefView == null) continue;
+
+            String apiName = String.valueOf(flowDefView.get('ApiName'));
+            if (String.isBlank(apiName)) continue;
+
+            String label = String.valueOf(flowDefView.get('Label'));
+            String status = record.get('Status') == null ? 'Unknown' : String.valueOf(record.get('Status'));
+
+            Boolean replace = !unique.containsKey(apiName) || status == 'Active';
+            if (replace) {
+                String displayLabel = (String.isBlank(label) ? apiName : label) + ' [' + status + ']';
+                unique.put(apiName, new MetadataOption(displayLabel, apiName));
+                bestStatus.put(apiName, status);
+            }
+        }
+
+        List<String> keys = new List<String>(unique.keySet());
+        keys.sort();
+        List<MetadataOption> options = new List<MetadataOption>();
+        for (String key : keys) {
+            options.add(unique.get(key));
+        }
+        return options;
+    }
+
     public static List<MetadataOption> getApexClasses() {
         ToolingApiClient.enforceAccess();
         String soql = 'SELECT Id, Name FROM ApexClass WHERE NamespacePrefix = null';
