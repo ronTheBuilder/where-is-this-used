@@ -156,6 +156,25 @@ private with sharing class ToolingApiClientTest {
         System.assertEquals(1, result.records.size());
     }
 
+    @IsTest
+    static void queryFlowVersionsWithFallback_fallsToFlowDefinitionView() {
+        ToolingApiClient.bypassAccessCheckForTests = true;
+        Test.setMock(HttpCalloutMock.class, new FlowVersionViewNotSupportedMock());
+
+        Test.startTest();
+        ToolingApiClient.ToolingQueryResponse result = ToolingApiClient.queryFlowVersionsWithFallback(
+            null, 'Status = \'Active\'', 2000
+        );
+        Test.stopTest();
+
+        System.assertEquals(1, result.records.size());
+        Map<String, Object> record = ToolingApiClient.asMap(result.records[0]);
+        System.assertEquals('301ACTIVE', String.valueOf(record.get('Id')));
+        Map<String, Object> flowDef = ToolingApiClient.asMap(record.get('FlowDefinitionView'));
+        System.assertNotEquals(null, flowDef);
+        System.assertEquals('My_Flow', String.valueOf(flowDef.get('ApiName')));
+    }
+
     private class QueryPaginationMock implements HttpCalloutMock {
         public HttpResponse respond(HttpRequest req) {
             HttpResponse response = new HttpResponse();
@@ -269,6 +288,39 @@ private with sharing class ToolingApiClientTest {
                 '{"MetadataComponentId":"01pA","MetadataComponentName":"ClassA","MetadataComponentType":"ApexClass","RefMetadataComponentName":"Account.MyField__c"},' +
                 '{"MetadataComponentId":"01pB","MetadataComponentName":"ClassB","MetadataComponentType":"ApexClass","RefMetadataComponentName":"Account.Other__c"}' +
             ']}');
+            return response;
+        }
+    }
+
+    private class FlowVersionViewNotSupportedMock implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest req) {
+            HttpResponse response = new HttpResponse();
+            response.setHeader('Content-Type', 'application/json');
+
+            String endpoint = req.getEndpoint();
+            String soql = '';
+            if (endpoint.contains('?q=')) {
+                soql = EncodingUtil.urlDecode(endpoint.substring(endpoint.indexOf('?q=') + 3), 'UTF-8');
+            }
+
+            // FlowVersionView is not supported on this org
+            if (soql.contains('FROM FlowVersionView')) {
+                response.setStatusCode(400);
+                response.setBody('[{"message":"sObject type \'FlowVersionView\' is not supported","errorCode":"INVALID_TYPE"}]');
+                return response;
+            }
+
+            // FlowDefinitionView works
+            if (soql.contains('FROM FlowDefinitionView')) {
+                response.setStatusCode(200);
+                response.setBody('{"done":true,"totalSize":1,"records":[' +
+                    '{"ApiName":"My_Flow","Label":"My Flow","ActiveVersionId":"301ACTIVE"}' +
+                ']}');
+                return response;
+            }
+
+            response.setStatusCode(200);
+            response.setBody('{"done":true,"totalSize":0,"records":[]}');
             return response;
         }
     }
