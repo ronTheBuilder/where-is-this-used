@@ -442,7 +442,7 @@ public with sharing class ToolingApiClient {
 
         // Level 4: no ref-field filters + full client-side filtering (last resort)
         ToolingQueryResponse result = queryToolingRecords(
-            'SELECT ' + selectFields + ', RefMetadataComponentName' +
+            'SELECT ' + selectFields +
             ' FROM MetadataComponentDependency',
             maxRows
         );
