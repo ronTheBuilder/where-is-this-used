@@ -234,7 +234,16 @@ public with sharing class ToolingApiClient {
         }
 
         // Level 3: FlowDefinitionView only (FlowVersionView not available on this org)
-        return queryFlowDefinitionViewOnly(maxRows);
+        try {
+            return queryFlowDefinitionViewOnly(maxRows);
+        } catch (ToolingApiClientException ex) {
+            if (!isQueryError(ex)) {
+                throw ex;
+            }
+        }
+
+        // Level 4: Flow sObject directly (FlowDefinitionView also not available)
+        return queryFlowSObjectOnly(maxRows);
     }
 
     /**
@@ -308,6 +317,53 @@ public with sharing class ToolingApiClient {
     }
 
     /**
+     * Last-resort fallback: query Flow sObject directly.
+     * Used when both FlowVersionView and FlowDefinitionView are unsupported.
+     * Returns records shaped like FlowVersionView with FlowDefinitionView nested map.
+     * Uses MasterLabel as both ApiName and Label since DeveloperName is not
+     * reliably available on the Flow sObject.
+     */
+    private static ToolingQueryResponse queryFlowSObjectOnly(Integer maxRows) {
+        ToolingQueryResponse flowResult = queryToolingRecords(
+            'SELECT Id, MasterLabel, ProcessType, Status FROM Flow WHERE Status = \'Active\'',
+            maxRows
+        );
+
+        ToolingQueryResponse shaped = new ToolingQueryResponse();
+        shaped.done = flowResult.done;
+        shaped.totalSize = flowResult.totalSize;
+        shaped.limitReached = flowResult.limitReached;
+
+        for (Object rec : flowResult.records) {
+            Map<String, Object> row = asMap(rec);
+            if (row == null) continue;
+            String flowId = row.get('Id') == null ? null : String.valueOf(row.get('Id'));
+            String masterLabel = row.get('MasterLabel') == null ? null : String.valueOf(row.get('MasterLabel'));
+            if (String.isBlank(flowId)) continue;
+
+            Map<String, Object> shapedRecord = new Map<String, Object>{
+                'Id' => flowId,
+                'FlowDefinitionView' => new Map<String, Object>{
+                    'ApiName' => masterLabel,
+                    'Label' => masterLabel
+                }
+            };
+
+            // Preserve extra fields callers may need
+            if (row.get('ProcessType') != null) {
+                shapedRecord.put('ProcessType', row.get('ProcessType'));
+            }
+            if (row.get('Status') != null) {
+                shapedRecord.put('Status', row.get('Status'));
+            }
+
+            shaped.records.add(shapedRecord);
+        }
+
+        return shaped;
+    }
+
+    /**
      * Check if an exception is a query-related error that should trigger a fallback.
      */
     private static Boolean isQueryError(ToolingApiClientException ex) {
@@ -324,6 +380,13 @@ public with sharing class ToolingApiClient {
      * @param componentName RefMetadataComponentName to filter on
      * @param maxRows       Maximum rows to return
      */
+    /**
+     * Query MetadataComponentDependency with multi-level fallback:
+     *   1. Server-side filter on both RefMetadataComponentType + RefMetadataComponentName
+     *   2. Server-side RefMetadataComponentType only + client-side name filter
+     *   3. Server-side RefMetadataComponentName only (when type value is unsupported)
+     *   4. No ref-field filters + full client-side filtering (last resort)
+     */
     public static ToolingQueryResponse queryDependenciesWithNameFallback(
         String selectFields,
         String refType,
@@ -333,7 +396,7 @@ public with sharing class ToolingApiClient {
         String escapedRefType = String.escapeSingleQuotes(refType);
         String escapedName = String.escapeSingleQuotes(componentName);
 
-        // Try server-side filter first
+        // Level 1: server-side filter on both type + name
         try {
             String soql =
                 'SELECT ' + selectFields +
@@ -343,19 +406,53 @@ public with sharing class ToolingApiClient {
 
             return queryToolingRecords(soql, maxRows);
         } catch (ToolingApiClientException ex) {
-            if (!ex.getMessage().contains('invalid') && !ex.getMessage().contains('400')) {
+            if (!isQueryError(ex)) {
                 throw ex;
             }
         }
 
-        // Fallback: client-side filtering
-        String soql =
-            'SELECT ' + selectFields +
-            ' FROM MetadataComponentDependency' +
-            ' WHERE RefMetadataComponentType = \'' + escapedRefType + '\'';
+        // Level 2: type filter only + client-side name filter
+        try {
+            String soql =
+                'SELECT ' + selectFields +
+                ' FROM MetadataComponentDependency' +
+                ' WHERE RefMetadataComponentType = \'' + escapedRefType + '\'';
 
-        ToolingQueryResponse result = queryToolingRecords(soql, maxRows);
+            ToolingQueryResponse result = queryToolingRecords(soql, maxRows);
+            return filterByRefName(result, componentName);
+        } catch (ToolingApiClientException ex) {
+            if (!isQueryError(ex)) {
+                throw ex;
+            }
+        }
 
+        // Level 3: name filter only (when RefMetadataComponentType value is unsupported)
+        try {
+            String soql =
+                'SELECT ' + selectFields +
+                ' FROM MetadataComponentDependency' +
+                ' WHERE RefMetadataComponentName = \'' + escapedName + '\'';
+
+            return queryToolingRecords(soql, maxRows);
+        } catch (ToolingApiClientException ex) {
+            if (!isQueryError(ex)) {
+                throw ex;
+            }
+        }
+
+        // Level 4: no ref-field filters + full client-side filtering (last resort)
+        ToolingQueryResponse result = queryToolingRecords(
+            'SELECT ' + selectFields + ', RefMetadataComponentName' +
+            ' FROM MetadataComponentDependency',
+            maxRows
+        );
+        return filterByRefName(result, componentName);
+    }
+
+    /**
+     * Client-side filter: keep only records matching RefMetadataComponentName.
+     */
+    private static ToolingQueryResponse filterByRefName(ToolingQueryResponse result, String componentName) {
         List<Object> filtered = new List<Object>();
         for (Object recordObj : result.records) {
             Map<String, Object> row = asMap(recordObj);
