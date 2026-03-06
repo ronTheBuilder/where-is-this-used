@@ -213,8 +213,8 @@ public with sharing class ToolingApiClient {
      * @param maxRows          Maximum rows to return
      */
     public static ToolingQueryResponse queryFlowVersionsWithFallback(String additionalFields, String whereClause, Integer maxRows) {
-        // Level 1: FlowVersionView with relationship fields
-        String relFields = 'Id, FlowDefinitionView.ApiName, FlowDefinitionView.Label';
+        // Level 1: FlowVersionView with relationship fields (incl. NamespacePrefix for managed packages)
+        String relFields = 'Id, FlowDefinitionView.ApiName, FlowDefinitionView.Label, FlowDefinitionView.NamespacePrefix';
         if (String.isNotBlank(additionalFields)) {
             relFields += ', ' + additionalFields;
         }
@@ -263,7 +263,7 @@ public with sharing class ToolingApiClient {
      */
     private static void enrichWithFlowDefinitionView(ToolingQueryResponse result, Integer maxRows) {
         ToolingQueryResponse defResult = queryToolingRecords(
-            'SELECT ApiName, Label, ActiveVersionId FROM FlowDefinitionView WHERE IsActive = true',
+            'SELECT ApiName, Label, NamespacePrefix, ActiveVersionId FROM FlowDefinitionView WHERE IsActive = true',
             maxRows
         );
 
@@ -275,7 +275,8 @@ public with sharing class ToolingApiClient {
             if (String.isBlank(activeVersionId)) continue;
             defLookup.put(activeVersionId, new Map<String, String>{
                 'ApiName' => row.get('ApiName') == null ? null : String.valueOf(row.get('ApiName')),
-                'Label' => row.get('Label') == null ? null : String.valueOf(row.get('Label'))
+                'Label' => row.get('Label') == null ? null : String.valueOf(row.get('Label')),
+                'NamespacePrefix' => row.get('NamespacePrefix') == null ? null : String.valueOf(row.get('NamespacePrefix'))
             });
         }
 
@@ -287,7 +288,8 @@ public with sharing class ToolingApiClient {
             Map<String, String> def = defLookup.get(versionId);
             row.put('FlowDefinitionView', new Map<String, Object>{
                 'ApiName' => def.get('ApiName'),
-                'Label' => def.get('Label')
+                'Label' => def.get('Label'),
+                'NamespacePrefix' => def.get('NamespacePrefix')
             });
         }
     }
@@ -299,7 +301,7 @@ public with sharing class ToolingApiClient {
      */
     private static ToolingQueryResponse queryFlowDefinitionViewOnly(Integer maxRows) {
         ToolingQueryResponse defResult = queryToolingRecords(
-            'SELECT ApiName, Label, ActiveVersionId FROM FlowDefinitionView WHERE IsActive = true',
+            'SELECT ApiName, Label, NamespacePrefix, ActiveVersionId FROM FlowDefinitionView WHERE IsActive = true',
             maxRows
         );
 
@@ -319,7 +321,8 @@ public with sharing class ToolingApiClient {
                 'Id' => activeVersionId,
                 'FlowDefinitionView' => new Map<String, Object>{
                     'ApiName' => apiName,
-                    'Label' => row.get('Label') == null ? null : String.valueOf(row.get('Label'))
+                    'Label' => row.get('Label') == null ? null : String.valueOf(row.get('Label')),
+                    'NamespacePrefix' => row.get('NamespacePrefix') == null ? null : String.valueOf(row.get('NamespacePrefix'))
                 }
             };
             shaped.records.add(shaped_record);

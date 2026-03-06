@@ -79,17 +79,17 @@ public with sharing class DependencyService {
         }
         String trimmedName = componentName.trim();
 
-        // Standard Field: use ID-based query via FieldDefinition (Tooling API doesn't support RefMetadataComponentType = 'StandardEntity')
-        if (metadataType == 'Standard Field') {
-            return searchStandardFieldDependencies(trimmedName);
-        }
-
         // Validation Rule uses reverse query direction
         if (metadataType == 'Validation Rule') {
             return searchReverseDependencies(metadataType, trimmedName, refType);
         }
 
         List<Object> filteredRecords = queryDependenciesWithFallback(refType, trimmedName);
+
+        // Custom Label fallback: if name-based search returns nothing, try ID-based search
+        if (filteredRecords.isEmpty() && metadataType == 'Custom Label') {
+            filteredRecords = queryCustomLabelDependenciesById(trimmedName);
+        }
 
         List<DependencyRecord> flattened = parseDependencyRecords(filteredRecords, trimmedName, refType);
 
@@ -172,6 +172,36 @@ public with sharing class DependencyService {
         return response;
     }
 
+    /**
+     * Fallback for Custom Labels: resolve the ExternalString ID first, then query by RefMetadataComponentId.
+     * Handles cases where RefMetadataComponentType='CustomLabel' name-based query returns nothing
+     * (common with managed package labels or org-specific Tooling API behavior).
+     */
+    private static List<Object> queryCustomLabelDependenciesById(String labelName) {
+        try {
+            String soql = 'SELECT Id FROM ExternalString WHERE Name = \'' +
+                String.escapeSingleQuotes(labelName) + '\' LIMIT 1';
+            ToolingApiClient.ToolingQueryResponse labelResult = ToolingApiClient.queryToolingRecords(soql, 1);
+            if (labelResult.records.isEmpty()) return new List<Object>();
+
+            Map<String, Object> labelRec = ToolingApiClient.asMap(labelResult.records[0]);
+            String labelId = String.valueOf(labelRec.get('Id'));
+            if (String.isBlank(labelId)) return new List<Object>();
+
+            String depSoql =
+                'SELECT MetadataComponentId, MetadataComponentName, MetadataComponentType, MetadataComponentNamespace, ' +
+                'RefMetadataComponentName, RefMetadataComponentType ' +
+                'FROM MetadataComponentDependency WHERE RefMetadataComponentId = \'' +
+                String.escapeSingleQuotes(labelId) + '\'';
+
+            ToolingApiClient.ToolingQueryResponse depResult = ToolingApiClient.queryToolingRecords(depSoql, MAX_DEPENDENCY_ROWS);
+            return depResult.records;
+        } catch (Exception ex) {
+            System.debug(LoggingLevel.WARN, 'Custom label ID-based fallback failed: ' + ex.getMessage());
+            return new List<Object>();
+        }
+    }
+
     private static List<Object> queryDependenciesWithFallback(String refType, String componentName) {
         String selectFields =
             'MetadataComponentId, MetadataComponentName, MetadataComponentType, MetadataComponentNamespace, ' +
@@ -203,7 +233,16 @@ public with sharing class DependencyService {
             if (String.isBlank(apiName)) continue;
 
             String label = String.valueOf(flowDefView.get('Label'));
-            unique.put(apiName, new MetadataOption(String.isBlank(label) ? apiName : label, apiName));
+            String namespace = flowDefView.get('NamespacePrefix') == null ? null : String.valueOf(flowDefView.get('NamespacePrefix'));
+
+            // Qualified name for managed package flows (e.g., npe03__Payments_Flow)
+            String qualifiedName = String.isNotBlank(namespace) ? namespace + '__' + apiName : apiName;
+            String displayLabel = String.isBlank(label) ? qualifiedName : label;
+            if (String.isNotBlank(namespace)) {
+                displayLabel += ' [' + namespace + ']';
+            }
+
+            unique.put(qualifiedName, new MetadataOption(displayLabel, qualifiedName));
         }
 
         List<String> keys = new List<String>(unique.keySet());
@@ -223,7 +262,7 @@ public with sharing class DependencyService {
             MAX_DEPENDENCY_ROWS
         );
 
-        // Deduplicate by ApiName — prefer Active version; include status in label
+        // Deduplicate by qualifiedName — prefer Active version; include status + namespace in label
         Map<String, MetadataOption> unique = new Map<String, MetadataOption>();
         Map<String, String> bestStatus = new Map<String, String>();
 
@@ -236,13 +275,18 @@ public with sharing class DependencyService {
             if (String.isBlank(apiName)) continue;
 
             String label = String.valueOf(flowDefView.get('Label'));
+            String namespace = flowDefView.get('NamespacePrefix') == null ? null : String.valueOf(flowDefView.get('NamespacePrefix'));
             String status = record.get('Status') == null ? 'Unknown' : String.valueOf(record.get('Status'));
 
-            Boolean replace = !unique.containsKey(apiName) || status == 'Active';
+            String qualifiedName = String.isNotBlank(namespace) ? namespace + '__' + apiName : apiName;
+            Boolean replace = !unique.containsKey(qualifiedName) || status == 'Active';
             if (replace) {
-                String displayLabel = (String.isBlank(label) ? apiName : label) + ' [' + status + ']';
-                unique.put(apiName, new MetadataOption(displayLabel, apiName));
-                bestStatus.put(apiName, status);
+                String displayLabel = (String.isBlank(label) ? qualifiedName : label) + ' [' + status + ']';
+                if (String.isNotBlank(namespace)) {
+                    displayLabel += ' [' + namespace + ']';
+                }
+                unique.put(qualifiedName, new MetadataOption(displayLabel, qualifiedName));
+                bestStatus.put(qualifiedName, status);
             }
         }
 
@@ -257,18 +301,24 @@ public with sharing class DependencyService {
 
     public static List<MetadataOption> getApexClasses() {
         ToolingApiClient.enforceAccess();
-        String soql = 'SELECT Id, Name FROM ApexClass WHERE NamespacePrefix = null';
+        // Include managed package classes — filter NamespacePrefix = null removed
+        String soql = 'SELECT Id, Name, NamespacePrefix FROM ApexClass';
         ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
 
         List<MetadataOption> options = new List<MetadataOption>();
         for (Object recordObj : queryResponse.records) {
             Map<String, Object> record = ToolingApiClient.asMap(recordObj);
             String name = String.valueOf(record.get('Name'));
-            if (!String.isBlank(name)) {
-                options.add(new MetadataOption(name, name));
+            String namespace = record.get('NamespacePrefix') == null ? null : String.valueOf(record.get('NamespacePrefix'));
+            if (String.isBlank(name)) continue;
+
+            String qualifiedName = String.isNotBlank(namespace) ? namespace + '.' + name : name;
+            String displayLabel = name;
+            if (String.isNotBlank(namespace)) {
+                displayLabel += ' [' + namespace + ']';
             }
+            options.add(new MetadataOption(displayLabel, qualifiedName));
         }
-        // Sort client-side (removed ORDER BY from SOQL for reliability)
         options.sort();
         return options;
     }
@@ -292,7 +342,7 @@ public with sharing class DependencyService {
 
     public static List<MetadataOption> getCustomLabels() {
         ToolingApiClient.enforceAccess();
-        String soql = 'SELECT Id, Name, Value FROM ExternalString';
+        String soql = 'SELECT Id, Name, NamespacePrefix, Value FROM ExternalString';
         ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
 
         List<MetadataOption> options = new List<MetadataOption>();
@@ -300,12 +350,19 @@ public with sharing class DependencyService {
             Map<String, Object> record = ToolingApiClient.asMap(recordObj);
             String name = String.valueOf(record.get('Name'));
             String value = String.valueOf(record.get('Value'));
+            String namespace = record.get('NamespacePrefix') == null ? null : String.valueOf(record.get('NamespacePrefix'));
             if (String.isBlank(name)) continue;
+
             String displayLabel = name;
+            if (String.isNotBlank(namespace)) {
+                displayLabel = namespace + '__' + name;
+            }
             if (String.isNotBlank(value)) {
                 displayLabel += ' (' + (value.length() > 50 ? value.substring(0, 50) + '...' : value) + ')';
             }
-            options.add(new MetadataOption(displayLabel, name));
+            // Use the full qualified name (with namespace) as value for searching
+            String searchValue = String.isNotBlank(namespace) ? namespace + '__' + name : name;
+            options.add(new MetadataOption(displayLabel, searchValue));
         }
         return options;
     }
