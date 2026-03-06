@@ -93,6 +93,18 @@ public with sharing class DependencyService {
             flattened.addAll(findSubflowUsages(componentName));
         }
 
+        // Supplementary scan: Layouts & FlexiPages for field types
+        // (MetadataComponentDependency doesn't track Layout→Field relationships)
+        if (metadataType == 'Standard Field' || metadataType == 'Custom Field') {
+            try {
+                flattened.addAll(findLayoutsUsingField(trimmedName));
+                flattened.addAll(findFlexiPagesUsingField(trimmedName));
+            } catch (Exception ex) {
+                // Non-fatal: layout/flexipage scan is supplementary
+                System.debug(LoggingLevel.WARN, 'Layout/FlexiPage scan failed: ' + ex.getMessage());
+            }
+        }
+
         Boolean limitReached = filteredRecords.size() >= MAX_DEPENDENCY_ROWS;
 
         DependencySearchResponse response = new DependencySearchResponse();
@@ -347,6 +359,135 @@ public with sharing class DependencyService {
         ToolingApiClient.enforceAccess();
         ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryToolingRecords('SELECT Id FROM Organization LIMIT 1', 1);
         return !queryResponse.records.isEmpty();
+    }
+
+    /**
+     * Scan Page Layouts for a field reference.
+     * Field format: ObjectName.FieldName (e.g. Account.Industry)
+     * Fetches each layout's metadata JSON and checks for the field API name.
+     */
+    private static final Integer MAX_LAYOUT_SCAN = 50;
+
+    private static List<DependencyRecord> findLayoutsUsingField(String objectDotField) {
+        List<DependencyRecord> results = new List<DependencyRecord>();
+        if (String.isBlank(objectDotField) || !objectDotField.contains('.')) {
+            return results;
+        }
+
+        String objectName = objectDotField.substringBefore('.');
+        String fieldName = objectDotField.substringAfter('.');
+
+        String soql = 'SELECT Id, Name, FullName FROM Layout WHERE TableEnumOrId = \'' +
+            String.escapeSingleQuotes(objectName) + '\'';
+
+        ToolingApiClient.ToolingQueryResponse layoutResult;
+        try {
+            layoutResult = ToolingApiClient.queryToolingRecords(soql, MAX_LAYOUT_SCAN);
+        } catch (ToolingApiClient.ToolingApiClientException ex) {
+            return results;
+        }
+
+        for (Object recordObj : layoutResult.records) {
+            // Check remaining callout budget before fetching metadata
+            if (Limits.getCallouts() >= Limits.getLimitCallouts() - 2) {
+                break;
+            }
+
+            Map<String, Object> row = ToolingApiClient.asMap(recordObj);
+            if (row == null) continue;
+
+            String layoutId = String.valueOf(row.get('Id'));
+            String layoutName = String.valueOf(row.get('Name'));
+            if (String.isBlank(layoutId)) continue;
+
+            try {
+                Map<String, Object> fullRecord = ToolingApiClient.getToolingRecord('Layout', layoutId);
+                if (fullRecord == null) continue;
+
+                // Serialize metadata and check for field name (case-insensitive)
+                String body = JSON.serialize(fullRecord);
+                if (body != null && body.toLowerCase().contains('"' + fieldName.toLowerCase() + '"')) {
+                    DependencyRecord dep = new DependencyRecord();
+                    dep.metadataComponentId = layoutId;
+                    dep.metadataComponentName = layoutName;
+                    dep.metadataComponentType = 'Layout';
+                    dep.refMetadataComponentName = objectDotField;
+                    dep.refMetadataComponentType = 'Field';
+                    dep.accessType = 'Layout Field';
+                    dep.setupUrl = '/lightning/setup/ObjectManager/' + objectName + '/PageLayouts/view';
+                    dep.isSubflowReference = false;
+                    results.add(dep);
+                }
+            } catch (Exception ex) {
+                // Skip individual layout errors
+                System.debug(LoggingLevel.WARN, 'Layout scan error for ' + layoutId + ': ' + ex.getMessage());
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * Scan Lightning Record Pages (FlexiPages) for a field reference.
+     */
+    private static final Integer MAX_FLEXIPAGE_SCAN = 30;
+
+    private static List<DependencyRecord> findFlexiPagesUsingField(String objectDotField) {
+        List<DependencyRecord> results = new List<DependencyRecord>();
+        if (String.isBlank(objectDotField) || !objectDotField.contains('.')) {
+            return results;
+        }
+
+        String objectName = objectDotField.substringBefore('.');
+        String fieldName = objectDotField.substringAfter('.');
+
+        // FlexiPages linked to an object via SobjectType
+        String soql = 'SELECT Id, DeveloperName, MasterLabel FROM FlexiPage WHERE SobjectType = \'' +
+            String.escapeSingleQuotes(objectName) + '\'';
+
+        ToolingApiClient.ToolingQueryResponse flexiResult;
+        try {
+            flexiResult = ToolingApiClient.queryToolingRecords(soql, MAX_FLEXIPAGE_SCAN);
+        } catch (ToolingApiClient.ToolingApiClientException ex) {
+            return results;
+        }
+
+        for (Object recordObj : flexiResult.records) {
+            if (Limits.getCallouts() >= Limits.getLimitCallouts() - 2) {
+                break;
+            }
+
+            Map<String, Object> row = ToolingApiClient.asMap(recordObj);
+            if (row == null) continue;
+
+            String pageId = String.valueOf(row.get('Id'));
+            String pageName = String.valueOf(row.get('MasterLabel'));
+            String devName = String.valueOf(row.get('DeveloperName'));
+            if (String.isBlank(pageId)) continue;
+
+            try {
+                Map<String, Object> fullRecord = ToolingApiClient.getToolingRecord('FlexiPage', pageId);
+                if (fullRecord == null) continue;
+
+                String body = JSON.serialize(fullRecord);
+                if (body != null && body.toLowerCase().contains('"' + fieldName.toLowerCase() + '"')) {
+                    DependencyRecord dep = new DependencyRecord();
+                    dep.metadataComponentId = pageId;
+                    dep.metadataComponentName = String.isBlank(pageName) ? devName : pageName;
+                    dep.metadataComponentType = 'FlexiPage';
+                    dep.refMetadataComponentName = objectDotField;
+                    dep.refMetadataComponentType = 'Field';
+                    dep.accessType = 'Record Page Field';
+                    dep.setupUrl = '/lightning/setup/ObjectManager/' + objectName + '/LightningPages/view';
+                    dep.isSubflowReference = false;
+                    results.add(dep);
+                }
+            } catch (Exception ex) {
+                System.debug(LoggingLevel.WARN, 'FlexiPage scan error for ' + pageId + ': ' + ex.getMessage());
+            }
+        }
+
+        return results;
     }
 
     @TestVisible

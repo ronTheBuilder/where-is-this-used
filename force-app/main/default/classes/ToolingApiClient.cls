@@ -190,6 +190,18 @@ public with sharing class ToolingApiClient {
     }
 
     /**
+     * Generic: retrieve a Tooling API record by sObject type and Id.
+     * Returns the full deserialized response body as a Map.
+     */
+    public static Map<String, Object> getToolingRecord(String sObjectType, String recordId) {
+        if (String.isBlank(sObjectType) || String.isBlank(recordId)) {
+            return null;
+        }
+        HttpResponse response = sendGet(TOOLING_BASE_PATH + '/sobjects/' + sObjectType + '/' + recordId);
+        return asMap(JSON.deserializeUntyped(response.getBody()));
+    }
+
+    /**
      * Query FlowVersionView with FlowDefinitionView relationship fields.
      * Three-level fallback:
      *   1. FlowVersionView WITH relationship fields
