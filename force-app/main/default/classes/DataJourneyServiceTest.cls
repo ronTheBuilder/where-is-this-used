@@ -127,9 +127,32 @@ private with sharing class DataJourneyServiceTest {
             }
 
             if (soql.contains('FROM MetadataComponentDependency') && soql.contains('CustomField')) {
-                // Combined response — client-side filtering picks the right records
+                if (soql.contains('Account.Region__c')) {
+                    return '{"done":true,"totalSize":2,"records":[' +
+                        '{"MetadataComponentId":"TR1","MetadataComponentName":"AccountTrigger","MetadataComponentType":"ApexTrigger","MetadataComponentNamespace":null,"RefMetadataComponentName":"Account.Region__c"},' +
+                        '{"MetadataComponentId":"F1","MetadataComponentName":"Territory_Assignment_Flow","MetadataComponentType":"Flow","MetadataComponentNamespace":null,"RefMetadataComponentName":"Account.Region__c"}' +
+                    ']}';
+                }
+                if (soql.contains('Account.BigField__c') || soql.contains('BigField')) {
+                    List<Object> bigFieldRecords = new List<Object>();
+                    for (Integer i = 0; i < 60; i++) {
+                        bigFieldRecords.add(new Map<String, Object>{
+                            'MetadataComponentId' => 'L' + String.valueOf(i),
+                            'MetadataComponentName' => 'FlowLimit' + String.valueOf(i),
+                            'MetadataComponentType' => 'Flow',
+                            'MetadataComponentNamespace' => null,
+                            'RefMetadataComponentName' => 'Account.BigField__c'
+                        });
+                    }
+                    Map<String, Object> payload = new Map<String, Object>{
+                        'done' => true,
+                        'totalSize' => bigFieldRecords.size(),
+                        'records' => bigFieldRecords
+                    };
+                    return JSON.serialize(payload);
+                }
+                // Fallback: return all records for client-side filtering
                 List<Object> combined = new List<Object>();
-                // Region__c dependencies
                 combined.add(new Map<String, Object>{
                     'MetadataComponentId' => 'TR1', 'MetadataComponentName' => 'AccountTrigger',
                     'MetadataComponentType' => 'ApexTrigger', 'MetadataComponentNamespace' => null,
@@ -140,7 +163,6 @@ private with sharing class DataJourneyServiceTest {
                     'MetadataComponentType' => 'Flow', 'MetadataComponentNamespace' => null,
                     'RefMetadataComponentName' => 'Account.Region__c'
                 });
-                // BigField__c dependencies (60 flows for limit test)
                 for (Integer i = 0; i < 60; i++) {
                     combined.add(new Map<String, Object>{
                         'MetadataComponentId' => 'L' + String.valueOf(i),

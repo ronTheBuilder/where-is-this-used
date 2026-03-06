@@ -123,7 +123,7 @@ private with sharing class DependencyServiceTest {
                 Map<String, Object> payload = new Map<String, Object>{
                     'done' => false,
                     'totalSize' => 2500,
-                    'nextRecordsUrl' => '/services/data/v65.0/tooling/query/01gNEXT',
+                    'nextRecordsUrl' => '/services/data/v66.0/tooling/query/01gNEXT',
                     'records' => largeSet
                 };
                 return JSON.serialize(payload);
