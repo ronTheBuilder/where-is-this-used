@@ -277,7 +277,7 @@ private with sharing class ToolingApiClientTest {
                 soql = EncodingUtil.urlDecode(endpoint.substring(endpoint.indexOf('?q=') + 3), 'UTF-8');
             }
 
-            if (failServerSide && soql.contains('RefMetadataComponentName')) {
+            if (failServerSide && soql.containsIgnoreCase('WHERE') && soql.substringAfter('WHERE').contains('RefMetadataComponentName')) {
                 response.setStatusCode(400);
                 response.setBody('[{"message":"Invalid query filter","errorCode":"MALFORMED_QUERY"}]');
                 return response;
