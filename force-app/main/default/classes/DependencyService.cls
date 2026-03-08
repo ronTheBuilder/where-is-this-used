@@ -340,6 +340,84 @@ public with sharing class DependencyService {
         return options;
     }
 
+    /**
+     * Find custom fields on a given object that have ZERO dependencies.
+     * Useful for org cleanup — identifying fields safe to remove.
+     */
+    public static List<MetadataOption> findUnusedCustomFields(String objectName) {
+        ToolingApiClient.enforceAccess();
+        if (String.isBlank(objectName)) {
+            return new List<MetadataOption>();
+        }
+
+        String escapedObj = String.escapeSingleQuotes(objectName);
+
+        // Get all custom fields on the object
+        String fieldSoql = 'SELECT Id, DeveloperName, TableEnumOrId FROM CustomField WHERE TableEnumOrId = \'' + escapedObj + '\'';
+        ToolingApiClient.ToolingQueryResponse fieldResult = ToolingApiClient.queryToolingRecords(fieldSoql, MAX_DEPENDENCY_ROWS);
+
+        if (fieldResult.records.isEmpty()) {
+            return new List<MetadataOption>();
+        }
+
+        // Collect all field IDs
+        Map<String, String> fieldIdToName = new Map<String, String>();
+        for (Object recordObj : fieldResult.records) {
+            Map<String, Object> rec = ToolingApiClient.asMap(recordObj);
+            if (rec == null) continue;
+            String fieldId = String.valueOf(rec.get('Id'));
+            String devName = String.valueOf(rec.get('DeveloperName'));
+            if (String.isNotBlank(fieldId) && String.isNotBlank(devName)) {
+                fieldIdToName.put(fieldId, devName);
+            }
+        }
+
+        if (fieldIdToName.isEmpty()) {
+            return new List<MetadataOption>();
+        }
+
+        // Query dependencies for ALL these fields in one go
+        Set<String> referencedFieldIds = new Set<String>();
+        // Query in batches of 50 IDs (SOQL IN clause limit is 100 for Tooling API)
+        List<String> allIds = new List<String>(fieldIdToName.keySet());
+        for (Integer i = 0; i < allIds.size(); i += 50) {
+            Integer endIdx = Math.min(i + 50, allIds.size());
+            List<String> batch = new List<String>();
+            for (Integer j = i; j < endIdx; j++) {
+                batch.add('\'' + String.escapeSingleQuotes(allIds[j]) + '\'');
+            }
+            String idList = String.join(batch, ', ');
+
+            try {
+                String depSoql = 'SELECT RefMetadataComponentId FROM MetadataComponentDependency WHERE RefMetadataComponentId IN (' + idList + ')';
+                ToolingApiClient.ToolingQueryResponse depResult = ToolingApiClient.queryToolingRecords(depSoql, MAX_DEPENDENCY_ROWS);
+                for (Object depObj : depResult.records) {
+                    Map<String, Object> dep = ToolingApiClient.asMap(depObj);
+                    if (dep != null && dep.get('RefMetadataComponentId') != null) {
+                        referencedFieldIds.add(String.valueOf(dep.get('RefMetadataComponentId')));
+                    }
+                }
+            } catch (ToolingApiClient.ToolingApiClientException ex) {
+                // Some orgs might not support this query; skip batch
+                System.debug(LoggingLevel.WARN, 'Unused field scan batch failed: ' + ex.getMessage());
+            }
+        }
+
+        // Fields NOT in referencedFieldIds are unused
+        List<MetadataOption> unused = new List<MetadataOption>();
+        for (String fieldId : fieldIdToName.keySet()) {
+            if (!referencedFieldIds.contains(fieldId)) {
+                String devName = fieldIdToName.get(fieldId);
+                unused.add(new MetadataOption(
+                    objectName + '.' + devName + '__c',
+                    objectName + '.' + devName + '__c'
+                ));
+            }
+        }
+        unused.sort();
+        return unused;
+    }
+
     public static List<MetadataOption> getCustomLabels() {
         ToolingApiClient.enforceAccess();
         String soql = 'SELECT Id, Name, NamespacePrefix, Value FROM ExternalString';

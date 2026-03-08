@@ -38,6 +38,9 @@ export default class MetadataPicker extends LightningElement {
     @track hideNoiseObjects = true;
     @track activeFlowsOnly = true;
 
+    // Recent searches
+    @track recentSearches = [];
+
     // Raw unfiltered data
     _allObjectOptions = [];
     _allFlowOptions = [];
@@ -68,6 +71,64 @@ export default class MetadataPicker extends LightningElement {
         if (this.metadataType === 'Flow') return 'Flow';
         if (this.metadataType === 'Apex Class') return 'Apex Class';
         return 'Component';
+    }
+
+    get hasRecentSearches() {
+        return this.recentSearches.length > 0;
+    }
+
+    connectedCallback() {
+        this.loadRecentSearches();
+    }
+
+    loadRecentSearches() {
+        try {
+            const stored = localStorage.getItem('witu_recent_searches');
+            this.recentSearches = stored ? JSON.parse(stored) : [];
+        } catch (e) {
+            this.recentSearches = [];
+        }
+    }
+
+    saveRecentSearch(metadataType, componentName, objectName) {
+        const entry = {
+            key: metadataType + ':' + componentName,
+            metadataType,
+            componentName,
+            objectName: objectName || null,
+            label: componentName + ' (' + metadataType + ')',
+            timestamp: Date.now()
+        };
+        // Remove duplicate, add to front, cap at 10
+        let searches = this.recentSearches.filter(s => s.key !== entry.key);
+        searches.unshift(entry);
+        searches = searches.slice(0, 10);
+        this.recentSearches = searches;
+        try {
+            localStorage.setItem('witu_recent_searches', JSON.stringify(searches));
+        } catch (e) { /* quota exceeded — ignore */ }
+    }
+
+    handleRecentSearchClick(event) {
+        const key = event.currentTarget.dataset.key;
+        const entry = this.recentSearches.find(s => s.key === key);
+        if (!entry) return;
+
+        this.metadataType = entry.metadataType;
+        this.selectedComponent = entry.componentName;
+        if (entry.objectName) {
+            this.selectedObject = entry.objectName;
+        }
+        this.updateSearchState();
+        // Auto-trigger search
+        this.handleSearch();
+    }
+
+    handleClearRecent() {
+        this.recentSearches = [];
+        try {
+            localStorage.removeItem('witu_recent_searches');
+        } catch (e) { /* ignore */ }
     }
 
     get objectFilterLabel() {
@@ -225,6 +286,7 @@ export default class MetadataPicker extends LightningElement {
                 metadataType: this.metadataType,
                 componentName: this.selectedComponent
             });
+            this.saveRecentSearch(this.metadataType, this.selectedComponent, this.selectedObject);
             this.dispatchEvent(new CustomEvent('search', { detail: response }));
         } catch (error) {
             this.fireError(this.reduceError(error));
