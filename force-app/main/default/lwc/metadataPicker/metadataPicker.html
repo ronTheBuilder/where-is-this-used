@@ -24,8 +24,30 @@
             </div>
         </template>
 
-        <!-- Component picker -->
-        <template if:true={showComponentPicker}>
+        <!-- Apex Class search-as-you-type -->
+        <template if:true={showApexSearch}>
+            <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
+                <lightning-input
+                    type="search"
+                    label="Search Apex Classes"
+                    value={apexSearchTerm}
+                    placeholder="Type to search..."
+                    onchange={handleApexSearchChange}>
+                </lightning-input>
+            </div>
+            <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
+                <lightning-combobox
+                    label="Apex Class"
+                    value={selectedComponent}
+                    options={componentOptions}
+                    placeholder="Select class..."
+                    onchange={handleComponentChange}>
+                </lightning-combobox>
+            </div>
+        </template>
+
+        <!-- Component picker (non-Apex types) -->
+        <template if:true={showComponentPickerNonApex}>
             <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12">
                 <lightning-combobox
                     label={componentLabel}

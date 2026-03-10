@@ -45,7 +45,7 @@ public with sharing class DependencyService {
         return new List<String>{
             'Standard Field', 'Custom Field', 'Flow', 'Apex Class',
             'Record Type', 'Custom Label', 'Platform Event',
-            'Validation Rule', 'Custom Metadata Type'
+            'Validation Rule', 'Custom Metadata Type', 'Formula Field'
         };
     }
 
@@ -72,9 +72,14 @@ public with sharing class DependencyService {
         }
         String trimmedName = componentName.trim();
 
-        // Validation Rule uses reverse query direction
+        // Validation Rule: what references it + what fields it references (formula parsing)
         if (metadataType == 'Validation Rule') {
-            return searchReverseDependencies(metadataType, trimmedName, refType);
+            return searchValidationRuleDependencies(metadataType, trimmedName, refType);
+        }
+
+        // Formula Field: parse formula and show field dependencies
+        if (metadataType == 'Formula Field') {
+            return searchFormulaFieldDependencies(metadataType, trimmedName);
         }
 
         List<Object> filteredRecords = queryDependenciesWithFallback(refType, trimmedName);
@@ -101,7 +106,151 @@ public with sharing class DependencyService {
     }
 
     /**
-     * Reverse query: "what does component X reference?" (used for Validation Rules)
+     * Validation Rule search: components that reference it + fields it references (formula parsing).
+     */
+    private static DependencySearchResponse searchValidationRuleDependencies(String metadataType, String componentName, String toolingType) {
+        DependencySearchResponse reverse = searchReverseDependencies(metadataType, componentName, toolingType);
+        List<DependencyRecord> formulaRefs = getValidationRuleFormulaReferences(componentName);
+        if (formulaRefs.isEmpty()) {
+            return reverse;
+        }
+        List<DependencyRecord> combined = new List<DependencyRecord>();
+        for (DependencyGroup g : reverse.groups) {
+            if (g.records != null) combined.addAll(g.records);
+        }
+        combined.addAll(formulaRefs);
+        reverse.totalCount = combined.size();
+        reverse.groups = groupByComponentType(combined);
+        return reverse;
+    }
+
+    /**
+     * Formula Field: parse formula and return field dependencies.
+     */
+    private static DependencySearchResponse searchFormulaFieldDependencies(String metadataType, String componentName) {
+        List<DependencyRecord> results = new List<DependencyRecord>();
+        List<String> parts = componentName.split('\\.');
+        if (parts.size() != 2) {
+            return buildEmptyResponse(metadataType, componentName);
+        }
+        String objectName = parts[0].trim();
+        String fieldName = parts[1].trim();
+        if (String.isBlank(objectName) || String.isBlank(fieldName)) {
+            return buildEmptyResponse(metadataType, componentName);
+        }
+        Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectName);
+        if (sot == null) {
+            return buildEmptyResponse(metadataType, componentName);
+        }
+        Map<String, Schema.SObjectField> fieldsMap = sot.getDescribe().fields.getMap();
+        Schema.SObjectField fieldToken = fieldsMap.get(fieldName);
+        if (fieldToken == null) {
+            return buildEmptyResponse(metadataType, componentName);
+        }
+        Schema.DescribeFieldResult dfr = fieldToken.getDescribe();
+        if (dfr == null || String.isBlank(dfr.getCalculatedFormula())) {
+            return buildEmptyResponse(metadataType, componentName);
+        }
+        String formula = dfr.getCalculatedFormula();
+        List<String> fieldRefs = FlowFieldAnalyzer.extractFieldReferencesFromFormula(formula);
+        for (String fieldRef : fieldRefs) {
+            if (String.isBlank(fieldRef)) continue;
+            String refType = fieldRef.endsWith('__c') ? 'CustomField' : 'StandardEntity';
+            DependencyRecord dep = new DependencyRecord();
+            dep.metadataComponentId = null;
+            dep.metadataComponentName = fieldRef;
+            dep.metadataComponentType = refType;
+            dep.metadataComponentNamespace = null;
+            dep.refMetadataComponentName = componentName;
+            dep.refMetadataComponentType = 'Formula Field';
+            dep.accessType = 'Read';
+            dep.setupUrl = SetupUrlResolver.resolve(refType, null, fieldRef);
+            dep.isSubflowReference = false;
+            results.add(dep);
+        }
+        DependencySearchResponse response = new DependencySearchResponse();
+        response.metadataType = metadataType;
+        response.componentName = componentName;
+        response.totalCount = results.size();
+        response.limitReached = false;
+        response.warningMessage = null;
+        response.groups = groupByComponentType(results);
+        return response;
+    }
+
+    private static DependencySearchResponse buildEmptyResponse(String metadataType, String componentName) {
+        DependencySearchResponse r = new DependencySearchResponse();
+        r.metadataType = metadataType;
+        r.componentName = componentName;
+        r.totalCount = 0;
+        r.limitReached = false;
+        r.warningMessage = null;
+        r.groups = new List<DependencyGroup>();
+        return r;
+    }
+
+    /**
+     * Parse ValidationRule formula to get field references. Returns DependencyRecords for each field.
+     */
+    private static List<DependencyRecord> getValidationRuleFormulaReferences(String componentName) {
+        List<DependencyRecord> results = new List<DependencyRecord>();
+        List<String> parts = componentName.split('\\.');
+        if (parts.size() != 2) {
+            return results;
+        }
+        String objectName = parts[0].trim();
+        String vrName = parts[1].trim();
+        if (String.isBlank(objectName) || String.isBlank(vrName)) {
+            return results;
+        }
+        String escapedObj = String.escapeSingleQuotes(objectName);
+        String escapedVr = String.escapeSingleQuotes(vrName);
+        String soql = 'SELECT Id, ValidationName FROM ValidationRule ' +
+            'WHERE EntityDefinition.QualifiedApiName = \'' + escapedObj + '\' AND ValidationName = \'' + escapedVr + '\'';
+        ToolingApiClient.ToolingQueryResponse q = ToolingApiClient.queryToolingRecords(soql, 1);
+        if (q.records.isEmpty()) {
+            return results;
+        }
+        Map<String, Object> row = ToolingApiClient.asMap(q.records[0]);
+        String vrId = row == null ? null : String.valueOf(row.get('Id'));
+        if (String.isBlank(vrId)) {
+            return results;
+        }
+        String metaSoql = 'SELECT Id, Metadata FROM ValidationRule WHERE Id = \'' + String.escapeSingleQuotes(vrId) + '\'';
+        ToolingApiClient.ToolingQueryResponse metaQ = ToolingApiClient.queryToolingRecords(metaSoql, 1);
+        if (metaQ.records.isEmpty()) {
+            return results;
+        }
+        Map<String, Object> metaRow = ToolingApiClient.asMap(metaQ.records[0]);
+        Object metaObj = metaRow == null ? null : metaRow.get('Metadata');
+        Map<String, Object> meta = ToolingApiClient.asMap(metaObj);
+        Object formulaObj = meta == null ? null : (meta.get('errorConditionFormula') != null
+            ? meta.get('errorConditionFormula') : meta.get('ErrorConditionFormula'));
+        String formula = formulaObj == null ? null : String.valueOf(formulaObj);
+        if (String.isBlank(formula)) {
+            return results;
+        }
+        List<String> fieldRefs = FlowFieldAnalyzer.extractFieldReferencesFromFormula(formula);
+        for (String fieldRef : fieldRefs) {
+            if (String.isBlank(fieldRef)) continue;
+            String refType = fieldRef.endsWith('__c') ? 'CustomField' : 'StandardEntity';
+            DependencyRecord dep = new DependencyRecord();
+            dep.metadataComponentId = vrId;
+            dep.metadataComponentName = componentName;
+            dep.metadataComponentType = 'ValidationRule';
+            dep.metadataComponentNamespace = null;
+            dep.refMetadataComponentName = fieldRef;
+            dep.refMetadataComponentType = refType;
+            dep.accessType = 'Read';
+            dep.setupUrl = SetupUrlResolver.resolve(refType, null, fieldRef);
+            dep.isSubflowReference = false;
+            results.add(dep);
+        }
+        return results;
+    }
+
+    /**
+     * Reverse query: "what references component X?" (used for Validation Rules)
      */
     private static DependencySearchResponse searchReverseDependencies(String metadataType, String componentName, String toolingType) {
         String escapedType = String.escapeSingleQuotes(toolingType);
@@ -228,9 +377,24 @@ public with sharing class DependencyService {
     }
 
     public static List<MetadataOption> getApexClasses() {
+        return searchApexClasses(null);
+    }
+
+    /**
+     * Search Apex classes by name (search-as-you-type).
+     * Empty or null searchTerm returns first 50 classes alphabetically.
+     */
+    public static List<MetadataOption> searchApexClasses(String searchTerm) {
         ToolingApiClient.enforceAccess();
-        String soql = 'SELECT Id, Name FROM ApexClass WHERE NamespacePrefix = null';
-        ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
+        String soql;
+        if (String.isBlank(searchTerm)) {
+            soql = 'SELECT Id, Name FROM ApexClass WHERE NamespacePrefix = null ORDER BY Name LIMIT 50';
+        } else {
+            String escaped = String.escapeSingleQuotes(searchTerm.trim());
+            String likePattern = '%' + escaped + '%';
+            soql = 'SELECT Id, Name FROM ApexClass WHERE NamespacePrefix = null AND Name LIKE \'' + likePattern + '\' ORDER BY Name LIMIT 50';
+        }
+        ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryToolingRecords(soql, 50);
 
         List<MetadataOption> options = new List<MetadataOption>();
         for (Object recordObj : queryResponse.records) {
@@ -240,8 +404,6 @@ public with sharing class DependencyService {
                 options.add(new MetadataOption(name, name));
             }
         }
-        // Sort client-side (removed ORDER BY from SOQL for reliability)
-        options.sort();
         return options;
     }
 
@@ -278,6 +440,32 @@ public with sharing class DependencyService {
                 displayLabel += ' (' + (value.length() > 50 ? value.substring(0, 50) + '...' : value) + ')';
             }
             options.add(new MetadataOption(displayLabel, name));
+        }
+        return options;
+    }
+
+    public static List<MetadataOption> getFormulaFields(String objectName) {
+        ToolingApiClient.enforceAccess();
+        if (String.isBlank(objectName)) {
+            return new List<MetadataOption>();
+        }
+        Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectName);
+        if (sot == null) {
+            return new List<MetadataOption>();
+        }
+        Map<String, String> labelByApiName = new Map<String, String>();
+        for (Schema.SObjectField fieldToken : sot.getDescribe().fields.getMap().values()) {
+            Schema.DescribeFieldResult dfr = fieldToken.getDescribe();
+            if (!dfr.isAccessible()) continue;
+            if (String.isBlank(dfr.getCalculatedFormula())) continue;
+            labelByApiName.put(dfr.getName(), dfr.getLabel());
+        }
+        List<String> names = new List<String>(labelByApiName.keySet());
+        names.sort();
+        List<MetadataOption> options = new List<MetadataOption>();
+        for (String apiName : names) {
+            String label = labelByApiName.get(apiName);
+            options.add(new MetadataOption(label + ' (' + apiName + ')', objectName + '.' + apiName));
         }
         return options;
     }

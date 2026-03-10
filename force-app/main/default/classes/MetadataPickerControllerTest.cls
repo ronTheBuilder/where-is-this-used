@@ -65,6 +65,30 @@ private with sharing class MetadataPickerControllerTest {
         System.assertEquals('MyUtility', classes[0].value);
     }
 
+    @IsTest
+    static void searchApexClasses_returnsFilteredResults() {
+        Test.setMock(HttpCalloutMock.class, new PickerMock());
+
+        Test.startTest();
+        List<DependencyService.MetadataOption> classes = MetadataPickerController.searchApexClasses('My');
+        Test.stopTest();
+
+        System.assertEquals(1, classes.size());
+        System.assertEquals('MyUtility', classes[0].value);
+    }
+
+    @IsTest
+    static void getRecordTypes_returnsOptions() {
+        List<DependencyService.MetadataOption> options = MetadataPickerController.getRecordTypes('Account');
+        System.assert(options != null);
+    }
+
+    @IsTest
+    static void getFormulaFields_returnsFormulaFieldsOnly() {
+        List<DependencyService.MetadataOption> options = MetadataPickerController.getFormulaFields('Account');
+        System.assert(options != null);
+    }
+
     private class PickerMock implements HttpCalloutMock {
         public HTTPResponse respond(HTTPRequest req) {
             HttpResponse response = new HttpResponse();

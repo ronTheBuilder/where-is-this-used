@@ -3,33 +3,70 @@ import getMetadataTypes from '@salesforce/apex/DependencyController.getMetadataT
 import getObjects from '@salesforce/apex/MetadataPickerController.getObjects';
 import getFields from '@salesforce/apex/MetadataPickerController.getFields';
 import getFlows from '@salesforce/apex/MetadataPickerController.getFlows';
-import getApexClasses from '@salesforce/apex/MetadataPickerController.getApexClasses';
+import searchApexClasses from '@salesforce/apex/MetadataPickerController.searchApexClasses';
+import getRecordTypes from '@salesforce/apex/MetadataPickerController.getRecordTypes';
+import getCustomLabels from '@salesforce/apex/MetadataPickerController.getCustomLabels';
+import getValidationRules from '@salesforce/apex/MetadataPickerController.getValidationRules';
+import getPlatformEvents from '@salesforce/apex/MetadataPickerController.getPlatformEvents';
+import getCustomMetadataTypes from '@salesforce/apex/MetadataPickerController.getCustomMetadataTypes';
+import getFormulaFields from '@salesforce/apex/MetadataPickerController.getFormulaFields';
 import searchDependencies from '@salesforce/apex/DependencyController.searchDependencies';
+
+/** Debounce delay for Apex class search (ms) */
+const APEX_SEARCH_DEBOUNCE_MS = 300;
 
 export default class MetadataPicker extends LightningElement {
     @track metadataType = '';
     @track selectedObject = '';
     @track selectedComponent = '';
+    @track apexSearchTerm = '';
     @track metadataTypeOptions = [];
     @track objectOptions = [];
     @track componentOptions = [];
     @track isSearchDisabled = true;
+    _apexSearchTimeout = null;
 
-    // Show object picker for field types
+    /** Show object picker for types that require object selection first */
     get showObjectPicker() {
-        return this.metadataType === 'Standard Field' || this.metadataType === 'Custom Field';
+        const objectTypes = [
+            'Standard Field',
+            'Custom Field',
+            'Record Type',
+            'Validation Rule',
+            'Formula Field'
+        ];
+        return objectTypes.includes(this.metadataType);
     }
 
-    // Show component picker (field, flow, or class)
+    /** Show component picker (field, flow, class, etc.) */
     get showComponentPicker() {
         return this.metadataType !== '';
     }
 
+    /** Apex Class uses search-as-you-type instead of static dropdown */
+    get showApexSearch() {
+        return this.metadataType === 'Apex Class';
+    }
+
+    /** Component picker for types that use a single combobox (not Apex search) */
+    get showComponentPickerNonApex() {
+        return this.metadataType !== '' && this.metadataType !== 'Apex Class';
+    }
+
     get componentLabel() {
-        if (this.metadataType === 'Standard Field' || this.metadataType === 'Custom Field') return 'Field';
-        if (this.metadataType === 'Flow') return 'Flow';
-        if (this.metadataType === 'Apex Class') return 'Apex Class';
-        return 'Component';
+        const labels = {
+            'Standard Field': 'Field',
+            'Custom Field': 'Field',
+            'Flow': 'Flow',
+            'Apex Class': 'Apex Class',
+            'Record Type': 'Record Type',
+            'Custom Label': 'Custom Label',
+            'Platform Event': 'Platform Event',
+            'Validation Rule': 'Validation Rule',
+            'Custom Metadata Type': 'Custom Metadata Type',
+            'Formula Field': 'Formula Field'
+        };
+        return labels[this.metadataType] || 'Component';
     }
 
     @wire(getMetadataTypes)
@@ -46,6 +83,7 @@ export default class MetadataPicker extends LightningElement {
         this.metadataType = event.detail.value;
         this.selectedObject = '';
         this.selectedComponent = '';
+        this.apexSearchTerm = '';
         this.componentOptions = [];
         this.updateSearchState();
 
@@ -54,7 +92,19 @@ export default class MetadataPicker extends LightningElement {
         } else if (this.metadataType === 'Flow') {
             this.loadFlows();
         } else if (this.metadataType === 'Apex Class') {
-            this.loadApexClasses();
+            this.loadApexClasses('');
+        } else if (this.metadataType === 'Record Type') {
+            this.componentOptions = [];
+        } else if (this.metadataType === 'Custom Label') {
+            this.loadCustomLabels();
+        } else if (this.metadataType === 'Platform Event') {
+            this.loadPlatformEvents();
+        } else if (this.metadataType === 'Validation Rule') {
+            this.componentOptions = [];
+        } else if (this.metadataType === 'Formula Field') {
+            this.componentOptions = [];
+        } else if (this.metadataType === 'Custom Metadata Type') {
+            this.loadCustomMetadataTypes();
         }
     }
 
@@ -64,14 +114,33 @@ export default class MetadataPicker extends LightningElement {
         this.componentOptions = [];
         this.updateSearchState();
 
-        if (this.selectedObject) {
+        if (!this.selectedObject) return;
+
+        if (this.metadataType === 'Standard Field' || this.metadataType === 'Custom Field') {
             this.loadFields(this.selectedObject);
+        } else if (this.metadataType === 'Record Type') {
+            this.loadRecordTypes(this.selectedObject);
+        } else if (this.metadataType === 'Validation Rule') {
+            this.loadValidationRules(this.selectedObject);
+        } else if (this.metadataType === 'Formula Field') {
+            this.loadFormulaFields(this.selectedObject);
         }
     }
 
     handleComponentChange(event) {
         this.selectedComponent = event.detail.value;
         this.updateSearchState();
+    }
+
+    handleApexSearchChange(event) {
+        this.apexSearchTerm = event.target.value;
+        if (this._apexSearchTimeout) {
+            clearTimeout(this._apexSearchTimeout);
+        }
+        this._apexSearchTimeout = setTimeout(() => {
+            this.loadApexClasses(this.apexSearchTerm);
+            this._apexSearchTimeout = null;
+        }, APEX_SEARCH_DEBOUNCE_MS);
     }
 
     async loadObjects() {
@@ -86,11 +155,13 @@ export default class MetadataPicker extends LightningElement {
     async loadFields(objectName) {
         try {
             const data = await getFields({ objectName });
-            // Filter based on metadata type selection
             const typeFilter = this.metadataType;
             this.componentOptions = data
                 .filter(f => f.metadataType === typeFilter)
-                .map(f => ({ label: f.label + ' (' + f.value + ')', value: this.selectedObject + '.' + f.value }));
+                .map(f => ({
+                    label: f.label + " (" + f.value + ")",
+                    value: this.selectedObject + "." + f.value
+                }));
         } catch (error) {
             this.fireError('Failed to load fields: ' + this.reduceError(error));
         }
@@ -105,12 +176,67 @@ export default class MetadataPicker extends LightningElement {
         }
     }
 
-    async loadApexClasses() {
+    async loadApexClasses(searchTerm) {
         try {
-            const data = await getApexClasses();
+            const term = typeof searchTerm === "string" ? searchTerm : this.apexSearchTerm;
+            const data = await searchApexClasses({ searchTerm: term || null });
             this.componentOptions = data.map(c => ({ label: c.label, value: c.value }));
         } catch (error) {
-            this.fireError('Failed to load Apex classes: ' + this.reduceError(error));
+            this.fireError('Failed to search Apex classes: ' + this.reduceError(error));
+        }
+    }
+
+    async loadRecordTypes(objectName) {
+        try {
+            const data = await getRecordTypes({ objectName });
+            this.componentOptions = data.map(r => ({ label: r.label, value: r.value }));
+        } catch (error) {
+            this.fireError('Failed to load record types: ' + this.reduceError(error));
+        }
+    }
+
+    async loadCustomLabels() {
+        try {
+            const data = await getCustomLabels();
+            this.componentOptions = data.map(c => ({ label: c.label, value: c.value }));
+        } catch (error) {
+            this.fireError('Failed to load custom labels: ' + this.reduceError(error));
+        }
+    }
+
+    async loadValidationRules(objectName) {
+        try {
+            const data = await getValidationRules({ objectName });
+            this.componentOptions = data.map(v => ({ label: v.label, value: v.value }));
+        } catch (error) {
+            this.fireError('Failed to load validation rules: ' + this.reduceError(error));
+        }
+    }
+
+    async loadFormulaFields(objectName) {
+        try {
+            const data = await getFormulaFields({ objectName });
+            this.componentOptions = data.map(f => ({ label: f.label, value: f.value }));
+        } catch (error) {
+            this.fireError('Failed to load formula fields: ' + this.reduceError(error));
+        }
+    }
+
+    async loadPlatformEvents() {
+        try {
+            const data = await getPlatformEvents();
+            this.componentOptions = data.map(p => ({ label: p.label, value: p.value }));
+        } catch (error) {
+            this.fireError('Failed to load platform events: ' + this.reduceError(error));
+        }
+    }
+
+    async loadCustomMetadataTypes() {
+        try {
+            const data = await getCustomMetadataTypes();
+            this.componentOptions = data.map(c => ({ label: c.label, value: c.value }));
+        } catch (error) {
+            this.fireError('Failed to load custom metadata types: ' + this.reduceError(error));
         }
     }
 

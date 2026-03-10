@@ -112,6 +112,25 @@ public with sharing class MetadataPickerController {
     }
 
     @AuraEnabled(cacheable=true)
+    public static List<DependencyService.MetadataOption> searchApexClasses(String searchTerm) {
+        try {
+            return DependencyService.searchApexClasses(searchTerm);
+        } catch (DependencyService.DependencyServiceException ex) {
+            AuraHandledException ahe = new AuraHandledException(ex.getMessage());
+
+            ahe.setMessage(ex.getMessage());
+
+            throw ahe;
+        } catch (Exception ex) {
+            AuraHandledException ahe = new AuraHandledException('Unable to search Apex classes: ' + ex.getMessage());
+
+            ahe.setMessage(ex.getMessage());
+
+            throw ahe;
+        }
+    }
+
+    @AuraEnabled(cacheable=true)
     public static List<DependencyService.MetadataOption> getRecordTypes(String objectName) {
         try {
             return DependencyService.getRecordTypes(objectName);
@@ -132,6 +151,19 @@ public with sharing class MetadataPickerController {
             AuraHandledException ahe = new AuraHandledException('Unable to load custom labels: ' + ex.getMessage());
 
             ahe.setMessage('Unable to load custom labels: ' + ex.getMessage());
+
+            throw ahe;
+        }
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<DependencyService.MetadataOption> getFormulaFields(String objectName) {
+        try {
+            return DependencyService.getFormulaFields(objectName);
+        } catch (Exception ex) {
+            AuraHandledException ahe = new AuraHandledException('Unable to load formula fields: ' + ex.getMessage());
+
+            ahe.setMessage(ex.getMessage());
 
             throw ahe;
         }

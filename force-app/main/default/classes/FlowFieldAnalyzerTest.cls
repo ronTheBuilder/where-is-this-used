@@ -33,4 +33,21 @@ private with sharing class FlowFieldAnalyzerTest {
         System.assertEquals(0, result.fieldsWritten.size());
         System.assertEquals(0, result.subflowsCalled.size());
     }
+
+    @IsTest
+    static void extractFieldReferencesFromFormula_extractsFieldRefs() {
+        String formula = 'IF(Account.Industry = "Tech", Account.Region__c, Account.SLA__c)';
+        List<String> refs = FlowFieldAnalyzer.extractFieldReferencesFromFormula(formula);
+        System.assert(refs.contains('Account.Industry'));
+        System.assert(refs.contains('Account.Region__c'));
+        System.assert(refs.contains('Account.SLA__c'));
+    }
+
+    @IsTest
+    static void extractFieldReferencesFromFormula_handlesBlank() {
+        List<String> refs = FlowFieldAnalyzer.extractFieldReferencesFromFormula('');
+        System.assertEquals(0, refs.size());
+        refs = FlowFieldAnalyzer.extractFieldReferencesFromFormula(null);
+        System.assertEquals(0, refs.size());
+    }
 }

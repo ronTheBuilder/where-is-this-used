@@ -224,6 +224,20 @@ public with sharing class FlowFieldAnalyzer {
         }
     }
 
+    /**
+     * Extracts field references from formula text (e.g. ValidationRule, CustomField formula).
+     * Uses same token extraction as flow analysis. Returns sorted list of ObjectName.FieldName patterns.
+     */
+    public static List<String> extractFieldReferencesFromFormula(String formulaText) {
+        if (String.isBlank(formulaText)) {
+            return new List<String>();
+        }
+        Set<String> tokens = extractTokens(formulaText);
+        List<String> sorted = new List<String>(tokens);
+        sorted.sort();
+        return sorted;
+    }
+
     private static Set<String> extractTokens(String text) {
         Set<String> tokens = new Set<String>();
         if (String.isBlank(text)) {
