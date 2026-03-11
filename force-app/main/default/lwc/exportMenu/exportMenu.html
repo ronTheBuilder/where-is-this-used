@@ -2,6 +2,8 @@
     <div class="slds-dropdown-trigger slds-dropdown-trigger_click" lwc:ref="dropdownTrigger">
         <lightning-button-menu
             alternative-text="Export options"
+            title="Export options"
+            aria-label="Export options"
             icon-name="utility:download"
             menu-alignment="right"
             onselect={handleMenuSelect}
@@ -20,9 +22,9 @@
         </lightning-button-menu>
     </div>
     <template lwc:if={toastMessage}>
-        <div class="slds-notify slds-notify_toast slds-theme_success slds-m-top_x-small" role="status">
+        <div class="slds-notify slds-notify_toast slds-theme_success slds-var-m-top_x-small" role="status">
             <span class="slds-assistive-text">success</span>
-            <div class="slds-notify__content">
+            <div>
                 <p>{toastMessage}</p>
             </div>
         </div>

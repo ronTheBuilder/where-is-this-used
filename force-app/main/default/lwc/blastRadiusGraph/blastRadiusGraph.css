@@ -2,23 +2,8 @@
     display: block;
 }
 
-.blast-radius-root {
-    width: 100%;
-}
-
-.controls-bar {
-    gap: 0.5rem;
-}
-
-.controls-grid {
-    align-items: flex-end;
-}
-
 .type-filters {
-    align-items: center;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem 0.85rem;
+    /* SLDS grid utilities in template; keep only custom spacing */
     min-height: 2.2rem;
     padding-top: 1.1rem;
 }
@@ -30,7 +15,7 @@
 
 .direction-hint {
     color: #44403c;
-    font-size: 0.73rem;
+    font-size: var(--slds-c-font-size-text-small, 0.875rem);
     max-width: 30rem;
     text-align: right;
 }
@@ -44,6 +29,7 @@
     text-align: center;
 }
 
+/* Grid layout: SLDS slds-grid available; custom columns kept for metric cards */
 .stats-grid {
     display: grid;
     gap: 0.65rem;
@@ -51,9 +37,9 @@
 }
 
 .metric-card {
-    background: #f4f6f9;
-    border: 1px solid #dddbda;
-    border-radius: 0.55rem;
+    background: var(--slds-c-background-alt, #f3f3f3);
+    border: 1px solid var(--slds-c-border, #dddbda);
+    border-radius: var(--slds-c-radius-border-large, 0.5rem);
     display: flex;
     flex-direction: column;
     min-height: 4.35rem;
@@ -61,14 +47,14 @@
 }
 
 .metric-label {
-    color: #706e6b;
-    font-size: 0.72rem;
+    color: var(--slds-c-text-weak, #706e6b);
+    font-size: var(--slds-c-font-size-text-small, 0.875rem);
     text-transform: uppercase;
 }
 
 .metric-value {
     color: #181818;
-    font-size: 1.25rem;
+    font-size: var(--slds-c-font-size-heading-small, 1.25rem);
     font-weight: 700;
 }
 
@@ -80,26 +66,37 @@
 
 .legend-pill {
     align-items: center;
-    background: #f4f6f9;
-    border: 1px solid #dddbda;
-    border-radius: 999px;
+    background: var(--slds-c-background-alt, #f3f3f3);
+    border: 1px solid var(--slds-c-border, #dddbda);
+    border-radius: var(--slds-c-radius-border-circle, 9999px);
     color: #181818;
     display: inline-flex;
-    font-size: 0.73rem;
+    font-size: var(--slds-c-font-size-text-small, 0.875rem);
     gap: 0.3rem;
     padding: 0.2rem 0.55rem;
 }
 
 .legend-pill-icon {
     align-items: center;
-    border-radius: 999px;
+    border-radius: var(--slds-c-radius-border-circle, 9999px);
     color: #ffffff;
     display: inline-flex;
-    font-size: 0.64rem;
+    font-size: 0.875rem;
     height: 1rem;
     justify-content: center;
     width: 1rem;
 }
+
+.legend-pill-icon-flow { background-color: #1B96FF; }
+.legend-pill-icon-flowdefinition { background-color: #1B96FF; }
+.legend-pill-icon-apexclass { background-color: #9050E9; }
+.legend-pill-icon-validationrule { background-color: #FE5C4C; }
+.legend-pill-icon-layout { background-color: #04844B; }
+.legend-pill-icon-lightningcomponentbundle { background-color: #0D9DDA; }
+.legend-pill-icon-auradefinitionbundle { background-color: #0D9DDA; }
+.legend-pill-icon-root { background-color: #FF538A; }
+.legend-pill-icon-cycle { background-color: #FE9339; }
+.legend-pill-icon-item { background-color: #5F6A7D; }
 
 .graph-viewport {
     background:
@@ -163,14 +160,14 @@
 
 .node-icon {
     fill: #3e3e3c;
-    font-size: 0.78rem;
+    font-size: 0.875rem;
     font-weight: 700;
 }
 
 .node-label {
     dominant-baseline: middle;
     fill: #1b1a18;
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 600;
     pointer-events: none;
 }
@@ -183,7 +180,7 @@
 
 .depth-text {
     fill: #514f4d;
-    font-size: 9px;
+    font-size: 14px;
     font-weight: 700;
 }
 
@@ -199,7 +196,7 @@
 
 .collapse-toggle text {
     fill: #181818;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
 }
 
@@ -248,4 +245,16 @@
     .type-filters {
         padding-top: 0.2rem;
     }
+}
+
+/* View mode toggle button group */
+.view-toggle {
+    margin-right: 0.5rem;
+}
+
+/* D3 force/tree link — reuses .edge stroke styles; marker-end handled inline */
+.d3-link {
+    fill: none;
+    opacity: 0.88;
+    stroke: #9aa8b8;
 }

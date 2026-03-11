@@ -41,7 +41,7 @@ sf project deploy start -d force-app --dry-run --test-level RunLocalTests
 LWC UI → Apex @AuraEnabled Controller → Service Layer → Tooling API (via Named Credential)
 ```
 
-All Tooling API access goes through a single Named Credential: `callout:WITU_ToolingAPI`. The API endpoint base path is `/services/data/v65.0/tooling`.
+All Tooling API access goes through a single Named Credential: `callout:WITU_ToolingAPI`. The API endpoint base path is `/services/data/v66.0/tooling`.
 
 ### Feature Modules
 
@@ -55,14 +55,20 @@ The app has four distinct features, each following the same Controller → Servi
 | **Process Flow Map** | `ProcessFlowController` | `ProcessFlowService` | `processFlowMap` | Shows automation execution order for an object |
 
 Supporting classes:
+- `ToolingApiClient` — Centralized Tooling API access. All services call `ToolingApiClient.queryToolingRecords()`, `sendGet()`, `resolveEndpoint()`, etc. Contains multi-level query fallback logic for both `FlowVersionView` and `MetadataComponentDependency`.
 - `FlowFieldAnalyzer` — Parses Flow metadata JSON to extract field reads, writes, and subflow calls. Used by `DataJourneyService` and `DependencyService`.
 - `MetadataPickerController` — Powers object/field/flow/class picker dropdowns. Uses `Schema.getGlobalDescribe()` for objects/fields, delegates to `DependencyService` for flows and Apex classes.
+- `SetupUrlResolver` — Generates Salesforce Setup URLs for metadata components found in results.
 
 ### Key Patterns
 
-**Tooling API querying**: Each service class has its own `queryToolingRecords()`, `sendGet()`, and `resolveEndpoint()` methods (duplicated across services, not shared). All use the same `callout:WITU_ToolingAPI` Named Credential and the same HTTP callout pattern.
+**Tooling API querying**: All services use `ToolingApiClient` for HTTP callouts. Key methods: `queryToolingRecords()` (with pagination), `sendGet()` (with retry on 503), `resolveEndpoint()`, `getFlowMetadata()`, `getToolingRecord()`.
 
-**Client-side filtering**: `RefMetadataComponentName` is not filterable in `WHERE` clauses on all orgs. The pattern is: query by `RefMetadataComponentType` only, then filter by name in Apex. This applies in `DependencyService`, `BlastRadiusService`, and `DataJourneyService`.
+**Multi-level query fallback**: `ToolingApiClient` implements fallback chains for queries that may fail on certain org types:
+- `queryDependenciesWithNameFallback()` — tries server-side type+name filter → type-only + client filter → name-only → unfiltered + client filter
+- `queryFlowVersionsWithFallback()` — tries FlowVersionView with relationship fields → without → FlowDefinitionView only → Flow sObject only
+
+**Client-side filtering**: `RefMetadataComponentName` is not filterable in `WHERE` clauses on all orgs. The fallback pattern handles this automatically via `queryDependenciesWithNameFallback()`.
 
 **Security gate**: Every service enforces `FeatureManagement.checkPermission('WITU_Access')` before any operation. The custom permission is included in the `Where_Is_This_Used_User` permission set.
 
@@ -78,6 +84,7 @@ Supporting classes:
 - `blastRadiusGraph` — SVG-rendered dependency graph (uses `lwc:dom="manual"` for SVG manipulation)
 - `dataJourneyView` — SVG-rendered upstream/downstream field data flow
 - `processFlowMap` — Automation execution order timeline
+- `exportMenu` — Download/export results menu
 - `setupWizard` — Named Credential setup walkthrough
 
 ### API Details
@@ -86,7 +93,7 @@ Supporting classes:
 
 **Subflow detection**: Tooling API doesn't track Flow→Flow (subflow) references. Workaround: query `FlowVersionView` for active flows, retrieve each flow's `/sobjects/Flow/{id}` metadata, parse for `flowName` keys.
 
-**API version**: 65.0 (set in `sfdx-project.json` and hardcoded in service classes).
+**API version**: 66.0 (set in `sfdx-project.json` and hardcoded in `ToolingApiClient.TOOLING_BASE_PATH`).
 
 ## Development Guidelines
 

@@ -1,6 +1,7 @@
 import { LightningElement, track } from 'lwc';
 import getObjects from '@salesforce/apex/MetadataPickerController.getObjects';
 import getProcessFlow from '@salesforce/apex/ProcessFlowController.getProcessFlow';
+import { loadD3 } from 'c/d3Loader';
 
 const CONTEXT_OPTIONS = [
     { label: 'Insert', value: 'Insert' },
@@ -23,6 +24,31 @@ const ICON_BY_TYPE = {
     EntitlementRule: 'utility:task'
 };
 
+const COLOR_BY_TYPE = {
+    BeforeTrigger: '#9050E9',
+    AfterTrigger: '#9050E9',
+    ValidationRule: '#FE5C4C',
+    Flow_BeforeSave: '#1B96FF',
+    Flow_AfterSave: '#1B96FF',
+    Flow_Async: '#1B96FF',
+    WorkflowRule: '#FE9339',
+    WorkflowFieldUpdate: '#FE9339',
+    AssignmentRule: '#6DB9EF',
+    AutoResponseRule: '#6DB9EF',
+    EntitlementRule: '#6DB9EF'
+};
+
+const PHASE_COLORS = [
+    'rgba(1, 118, 211, 0.06)',
+    'rgba(144, 80, 233, 0.06)',
+    'rgba(254, 147, 57, 0.06)',
+    'rgba(27, 150, 255, 0.06)',
+    'rgba(254, 92, 76, 0.06)',
+    'rgba(109, 185, 239, 0.06)',
+    'rgba(3, 195, 165, 0.06)',
+    'rgba(255, 184, 0, 0.06)'
+];
+
 export default class ProcessFlowMap extends LightningElement {
     @track objectOptions = [];
     @track selectedObject = '';
@@ -31,8 +57,10 @@ export default class ProcessFlowMap extends LightningElement {
     @track error;
     @track response;
     @track expandedPhases = {};
+    @track viewMode = 'timeline';
 
     contextOptions = CONTEXT_OPTIONS;
+    d3 = null;
 
     connectedCallback() {
         this.loadObjects();
@@ -52,6 +80,40 @@ export default class ProcessFlowMap extends LightningElement {
 
     get isAnalyzeDisabled() {
         return !this.selectedObject || this.isLoading;
+    }
+
+    get isTimelineView() {
+        return this.viewMode === 'timeline';
+    }
+
+    get isArcView() {
+        return this.viewMode === 'arc';
+    }
+
+    get hasFieldData() {
+        const phases = this.response?.phases || [];
+        return phases.some(phase =>
+            (phase.steps || []).some(step =>
+                (step.fieldsReferenced || []).length > 0 ||
+                (step.fieldsModified || []).length > 0
+            )
+        );
+    }
+
+    get timelineClass() {
+        return this.isTimelineView ? 'timeline' : 'timeline slds-hide';
+    }
+
+    get arcContainerClass() {
+        return this.isArcView ? 'arc-container' : 'arc-container slds-hide';
+    }
+
+    get timelineViewVariant() {
+        return this.isTimelineView ? 'brand' : 'neutral';
+    }
+
+    get arcViewVariant() {
+        return this.isArcView ? 'brand' : 'neutral';
     }
 
     get phaseRows() {
@@ -142,6 +204,28 @@ export default class ProcessFlowMap extends LightningElement {
         };
     }
 
+    handlePhaseHeaderKeydown(event) {
+        if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            this.handleTogglePhase(event);
+        }
+    }
+
+    handleViewModeChange(event) {
+        const newMode = event.currentTarget.dataset.mode;
+        if (newMode === this.viewMode) {
+            return;
+        }
+        this.viewMode = newMode;
+        if (newMode === 'arc') {
+            // Defer so the arc container is visible in the DOM before rendering
+            // eslint-disable-next-line @lwc/lwc/no-async-operation
+            setTimeout(() => {
+                this.renderArcDiagram();
+            }, 0);
+        }
+    }
+
     async handleAnalyze() {
         if (this.isAnalyzeDisabled) {
             return;
@@ -151,6 +235,7 @@ export default class ProcessFlowMap extends LightningElement {
         this.error = null;
         this.response = null;
         this.expandedPhases = {};
+        this.viewMode = 'timeline';
 
         try {
             const result = await getProcessFlow({
@@ -160,6 +245,13 @@ export default class ProcessFlowMap extends LightningElement {
 
             this.response = result;
             this.initializePhaseExpansion(result?.phases || []);
+
+            if (this.viewMode === 'arc') {
+                // eslint-disable-next-line @lwc/lwc/no-async-operation
+                setTimeout(() => {
+                    this.renderArcDiagram();
+                }, 0);
+            }
         } catch (error) {
             this.error = this.reduceError(error);
         } finally {
@@ -210,6 +302,308 @@ export default class ProcessFlowMap extends LightningElement {
         });
         this.expandedPhases = expansion;
     }
+
+    // ─── Arc Diagram ──────────────────────────────────────────────────────────
+
+    computeFieldLinks() {
+        const steps = (this.response?.phases || []).flatMap(p => p.steps || []);
+        const links = [];
+        for (let i = 0; i < steps.length; i++) {
+            for (let j = i + 1; j < steps.length; j++) {
+                const iWrites = new Set(steps[i].fieldsModified || []);
+                const jReads = new Set(steps[j].fieldsReferenced || []);
+                const jWrites = new Set(steps[j].fieldsModified || []);
+                // iReads only needed if we add read-read links in future
+                // const iReads = new Set(steps[i].fieldsReferenced || []);
+
+                const causal = [...iWrites].filter(f => jReads.has(f));
+                const conflict = [...iWrites].filter(f => jWrites.has(f));
+
+                if (causal.length > 0) {
+                    links.push({ source: i, target: j, type: 'causal', fields: causal, value: causal.length });
+                }
+                if (conflict.length > 0) {
+                    links.push({ source: i, target: j, type: 'conflict', fields: conflict, value: conflict.length });
+                }
+            }
+        }
+        return links;
+    }
+
+    async renderArcDiagram() {
+        const container = this.template.querySelector('.arc-container');
+        if (!container) {
+            return;
+        }
+
+        // Load D3 if not already loaded
+        if (!this.d3) {
+            try {
+                this.d3 = await loadD3(this);
+            } catch (err) {
+                container.innerHTML = '<p class="arc-empty-state">Failed to load D3 library.</p>';
+                return;
+            }
+        }
+
+        const d3 = this.d3;
+
+        // Gather steps in execution order
+        const steps = (this.response?.phases || []).flatMap(p => p.steps || []);
+        if (steps.length === 0) {
+            container.innerHTML = '<p class="arc-empty-state">No automation steps found.</p>';
+            return;
+        }
+
+        const links = this.computeFieldLinks();
+
+        // Clear previous render
+        container.innerHTML = '';
+
+        // Dimensions
+        const margin = { top: 60, right: 40, bottom: 90, left: 40 };
+        const totalWidth = Math.max(container.clientWidth || 700, steps.length * 80 + margin.left + margin.right);
+        const height = 300;
+        const innerWidth = totalWidth - margin.left - margin.right;
+        const innerHeight = height - margin.top - margin.bottom;
+        const baselineY = margin.top + innerHeight;
+
+        // Create SVG
+        const svg = d3.create('svg')
+            .attr('width', totalWidth)
+            .attr('height', height)
+            .attr('class', 'arc-svg');
+
+        const g = svg.append('g')
+            .attr('transform', `translate(${margin.left},0)`);
+
+        // X scale — position for each step index
+        const xScale = d3.scalePoint()
+            .domain(steps.map((_, i) => i))
+            .range([0, innerWidth])
+            .padding(0.5);
+
+        // ── Phase background bands ───────────────────────────────────────────
+        const phases = this.response?.phases || [];
+        let stepOffset = 0;
+        phases.forEach((phase, phaseIdx) => {
+            const phaseSteps = phase.steps || [];
+            if (phaseSteps.length === 0) {
+                return;
+            }
+            const firstIdx = stepOffset;
+            const lastIdx = stepOffset + phaseSteps.length - 1;
+            stepOffset += phaseSteps.length;
+
+            const x1 = xScale(firstIdx) - (xScale.step() * 0.45);
+            const x2 = xScale(lastIdx) + (xScale.step() * 0.45);
+            const bandWidth = x2 - x1;
+
+            const color = PHASE_COLORS[phaseIdx % PHASE_COLORS.length];
+
+            g.append('rect')
+                .attr('x', x1)
+                .attr('y', margin.top - 20)
+                .attr('width', bandWidth)
+                .attr('height', innerHeight + 20)
+                .attr('fill', color)
+                .attr('rx', 4);
+
+            g.append('text')
+                .attr('x', x1 + bandWidth / 2)
+                .attr('y', margin.top - 28)
+                .attr('text-anchor', 'middle')
+                .attr('class', 'arc-phase-label')
+                .text(phase.phaseName || `Phase ${phase.phaseNumber}`);
+        });
+
+        // ── Baseline ────────────────────────────────────────────────────────
+        g.append('line')
+            .attr('x1', 0)
+            .attr('x2', innerWidth)
+            .attr('y1', baselineY)
+            .attr('y2', baselineY)
+            .attr('class', 'arc-baseline');
+
+        // ── Arcs ────────────────────────────────────────────────────────────
+        const arcGroup = g.append('g').attr('class', 'arc-links');
+
+        links.forEach((link, linkIdx) => {
+            const x1 = xScale(link.source);
+            const x2 = xScale(link.target);
+            const midX = (x1 + x2) / 2;
+            const arcHeight = Math.min(Math.abs(x2 - x1) * 0.45, innerHeight * 0.9);
+            const controlY = baselineY - arcHeight;
+            const strokeWidth = Math.max(1, Math.min(4, link.value));
+            const pathData = `M ${x1} ${baselineY} Q ${midX} ${controlY} ${x2} ${baselineY}`;
+
+            const arcClass = link.type === 'causal' ? 'arc-path arc-path-causal' : 'arc-path arc-path-conflict';
+
+            arcGroup.append('path')
+                .attr('d', pathData)
+                .attr('class', arcClass)
+                .attr('stroke-width', strokeWidth)
+                .attr('data-link-idx', linkIdx)
+                .on('mouseenter', (event) => {
+                    this.showArcTooltip(event, link, steps, container);
+                    // Highlight arc
+                    event.currentTarget.classList.add('arc-path-hover');
+                    // Highlight endpoint dots
+                    container.querySelectorAll(`.arc-dot[data-step-idx="${link.source}"], .arc-dot[data-step-idx="${link.target}"]`).forEach(el => {
+                        el.classList.add('arc-dot-hover');
+                    });
+                })
+                .on('mouseleave', () => {
+                    this.hideTooltip(container);
+                    container.querySelectorAll('.arc-path-hover').forEach(el => el.classList.remove('arc-path-hover'));
+                    container.querySelectorAll('.arc-dot-hover').forEach(el => el.classList.remove('arc-dot-hover'));
+                });
+        });
+
+        // ── Step dots ───────────────────────────────────────────────────────
+        const dotGroup = g.append('g').attr('class', 'arc-dots');
+
+        steps.forEach((step, i) => {
+            const cx = xScale(i);
+            const dotColor = COLOR_BY_TYPE[step.automationType] || '#9aa1a9';
+
+            dotGroup.append('circle')
+                .attr('cx', cx)
+                .attr('cy', baselineY)
+                .attr('r', 7)
+                .attr('fill', dotColor)
+                .attr('class', 'arc-dot')
+                .attr('data-step-idx', i)
+                .on('mouseenter', (event) => {
+                    this.showDotTooltip(event, step, i, links, container);
+                    event.currentTarget.classList.add('arc-dot-hover');
+                    // Highlight connected arcs
+                    container.querySelectorAll(`.arc-path[data-link-idx]`).forEach(el => {
+                        const idx = parseInt(el.getAttribute('data-link-idx'), 10);
+                        const lnk = links[idx];
+                        if (lnk && (lnk.source === i || lnk.target === i)) {
+                            el.classList.add('arc-path-hover');
+                        }
+                    });
+                })
+                .on('mouseleave', () => {
+                    this.hideTooltip(container);
+                    container.querySelectorAll('.arc-dot-hover').forEach(el => el.classList.remove('arc-dot-hover'));
+                    container.querySelectorAll('.arc-path-hover').forEach(el => el.classList.remove('arc-path-hover'));
+                });
+        });
+
+        // ── Step labels ──────────────────────────────────────────────────────
+        const labelGroup = g.append('g').attr('class', 'arc-labels');
+
+        steps.forEach((step, i) => {
+            const cx = xScale(i);
+            const displayName = (step.name || 'Unknown').length > 18
+                ? (step.name || 'Unknown').substring(0, 17) + '…'
+                : (step.name || 'Unknown');
+
+            labelGroup.append('text')
+                .attr('x', cx)
+                .attr('y', baselineY + 14)
+                .attr('transform', `rotate(45, ${cx}, ${baselineY + 14})`)
+                .attr('class', 'arc-label')
+                .text(displayName);
+        });
+
+        // ── Empty state for no links ─────────────────────────────────────────
+        if (links.length === 0) {
+            g.append('text')
+                .attr('x', innerWidth / 2)
+                .attr('y', baselineY - 30)
+                .attr('text-anchor', 'middle')
+                .attr('class', 'arc-empty-text')
+                .text('No field dependencies found between these automation steps.');
+        }
+
+        // Append SVG to container
+        container.appendChild(svg.node());
+
+        // Tooltip element
+        const tooltip = document.createElement('div');
+        tooltip.className = 'arc-tooltip';
+        tooltip.style.display = 'none';
+        container.appendChild(tooltip);
+    }
+
+    showArcTooltip(event, link, steps, container) {
+        const tooltip = container.querySelector('.arc-tooltip');
+        if (!tooltip) {
+            return;
+        }
+        const typeLabelMap = { causal: 'Data Flow', conflict: 'Write Conflict' };
+        const typeLabel = typeLabelMap[link.type] || link.type;
+        const srcName = steps[link.source]?.name || `Step ${link.source + 1}`;
+        const tgtName = steps[link.target]?.name || `Step ${link.target + 1}`;
+        tooltip.innerHTML = `
+            <div class="arc-tooltip-title">${typeLabel}</div>
+            <div class="arc-tooltip-row"><strong>From:</strong> ${this.escapeHtml(srcName)}</div>
+            <div class="arc-tooltip-row"><strong>To:</strong> ${this.escapeHtml(tgtName)}</div>
+            <div class="arc-tooltip-fields"><strong>Fields:</strong> ${link.fields.map(f => this.escapeHtml(f)).join(', ')}</div>
+        `;
+        this.positionTooltip(tooltip, event, container);
+    }
+
+    showDotTooltip(event, step, stepIdx, links, container) {
+        const tooltip = container.querySelector('.arc-tooltip');
+        if (!tooltip) {
+            return;
+        }
+        const refs = (step.fieldsReferenced || []);
+        const mods = (step.fieldsModified || []);
+        const connectedCount = links.filter(l => l.source === stepIdx || l.target === stepIdx).length;
+
+        let html = `<div class="arc-tooltip-title">${this.escapeHtml(step.name || 'Unknown')}</div>`;
+        html += `<div class="arc-tooltip-row"><strong>Type:</strong> ${this.escapeHtml(step.automationType || '')}</div>`;
+        if (refs.length > 0) {
+            html += `<div class="arc-tooltip-row"><strong>Reads:</strong> ${refs.map(f => this.escapeHtml(f)).join(', ')}</div>`;
+        }
+        if (mods.length > 0) {
+            html += `<div class="arc-tooltip-row"><strong>Writes:</strong> ${mods.map(f => this.escapeHtml(f)).join(', ')}</div>`;
+        }
+        if (connectedCount > 0) {
+            html += `<div class="arc-tooltip-row"><strong>Connections:</strong> ${connectedCount}</div>`;
+        }
+        tooltip.innerHTML = html;
+        this.positionTooltip(tooltip, event, container);
+    }
+
+    positionTooltip(tooltip, event, container) {
+        tooltip.style.display = 'block';
+        const containerRect = container.getBoundingClientRect();
+        let left = event.clientX - containerRect.left + 12;
+        let top = event.clientY - containerRect.top + 12;
+
+        // Keep tooltip inside container width
+        const tooltipWidth = 220;
+        if (left + tooltipWidth > containerRect.width - 8) {
+            left = left - tooltipWidth - 24;
+        }
+
+        tooltip.style.left = `${left}px`;
+        tooltip.style.top = `${top}px`;
+    }
+
+    hideTooltip(container) {
+        const tooltip = container.querySelector('.arc-tooltip');
+        if (tooltip) {
+            tooltip.style.display = 'none';
+        }
+    }
+
+    escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    // ─── Export ───────────────────────────────────────────────────────────────
 
     buildExportText() {
         const lines = [];

@@ -1,5 +1,5 @@
 <template>
-    <div class="slds-grid slds-wrap slds-gutters_small slds-m-bottom_medium">
+    <div class="slds-grid slds-wrap slds-gutters_small slds-var-m-bottom_medium">
         <!-- Metadata Type -->
         <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
             <lightning-combobox
@@ -67,19 +67,21 @@
                 icon-name="utility:search"
                 disabled={isSearchDisabled}
                 onclick={handleSearch}
-                class="slds-m-top_medium">
+                class="slds-var-m-top_medium">
             </lightning-button>
         </div>
     </div>
 
     <!-- Recent searches -->
     <template if:true={hasRecentSearches}>
-        <div class="slds-m-bottom_small">
-            <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_xx-small">
+        <div class="slds-var-m-bottom_small">
+            <div class="slds-grid slds-grid_vertical-align-center slds-var-m-bottom_xx-small">
                 <span class="slds-text-title_caps slds-grow">Recent Searches</span>
                 <lightning-button-icon
                     icon-name="utility:delete"
-                    alternative-text="Clear recent"
+                    alternative-text="Clear recent searches"
+                    title="Clear recent searches"
+                    aria-label="Clear recent searches"
                     size="small"
                     onclick={handleClearRecent}>
                 </lightning-button-icon>
@@ -99,7 +101,7 @@
 
     <!-- Filter toggles -->
     <template if:true={showObjectFilter}>
-        <div class="slds-m-bottom_small">
+        <div class="slds-var-m-bottom_small">
             <lightning-input
                 type="checkbox"
                 label={objectFilterLabel}
@@ -110,7 +112,7 @@
         </div>
     </template>
     <template if:true={showFlowFilter}>
-        <div class="slds-m-bottom_small">
+        <div class="slds-var-m-bottom_small">
             <lightning-input
                 type="checkbox"
                 label={flowFilterLabel}

@@ -1,20 +1,22 @@
 <template>
-    <section class="blast-radius-root">
-        <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-bottom_small">
-            <div class="slds-grid slds-grid_vertical-align-center">
+    <section class="blast-radius-root slds-size_1-of-1">
+        <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_small">
+            <div class="slds-grid slds-grid_vertical-align-center" role="group" aria-label="Back to results and graph title">
                 <lightning-button-icon
                     icon-name="utility:back"
                     alternative-text="Back to results"
                     title="Back to results"
+                    aria-label="Back to results"
                     onclick={handleBack}
-                    class="slds-m-right_small">
+                    class="slds-var-m-right_small">
                 </lightning-button-icon>
+                <span class="slds-assistive-text">Back to results</span>
                 <h2 class="slds-text-heading_small">Blast Radius: {componentName}</h2>
             </div>
             <span class="direction-hint">Direction: arrows point to components that use the upstream node.</span>
         </div>
 
-        <div class="slds-grid slds-wrap slds-grid_align-spread slds-m-bottom_small controls-bar">
+        <div class="slds-grid slds-wrap slds-grid_align-spread slds-gutters_small slds-var-m-bottom_small controls-bar">
             <div class="slds-button-group" role="group" aria-label="Depth">
                 <template for:each={depthButtons} for:item="depth">
                     <lightning-button
@@ -26,16 +28,27 @@
                     </lightning-button>
                 </template>
             </div>
-            <div class="slds-grid slds-gutters_x-small">
+            <div class="slds-grid slds-gutters_x-small slds-grid_vertical-align-center">
+                <div class="view-toggle slds-button-group" role="group" aria-label="View mode">
+                    <template for:each={viewModeButtons} for:item="btn">
+                        <lightning-button
+                            key={btn.value}
+                            label={btn.label}
+                            variant={btn.variant}
+                            data-mode={btn.value}
+                            onclick={handleViewModeChange}>
+                        </lightning-button>
+                    </template>
+                </div>
                 <lightning-button label="Zoom Fit" onclick={handleZoomFit}></lightning-button>
-                <lightning-button-menu alternative-text="Export" onselect={handleExportSelect}>
+                <lightning-button-menu alternative-text="Export graph" title="Export graph" aria-label="Export graph" onselect={handleExportSelect}>
                     <lightning-menu-item value="mermaid" label="Copy as Mermaid"></lightning-menu-item>
                     <lightning-menu-item value="svg" label="Download SVG"></lightning-menu-item>
                 </lightning-button-menu>
             </div>
         </div>
 
-        <div class="slds-grid slds-wrap slds-gutters_x-small controls-grid slds-m-bottom_small">
+        <div class="slds-grid slds-wrap slds-gutters_x-small slds-grid_align-end controls-grid slds-var-m-bottom_small">
             <div class="slds-col slds-size_1-of-1 slds-large-size_5-of-12">
                 <lightning-input
                     type="search"
@@ -46,7 +59,7 @@
                 </lightning-input>
             </div>
             <div class="slds-col slds-size_1-of-1 slds-large-size_7-of-12">
-                <div class="type-filters" role="group" aria-label="Filter by type">
+                <div class="type-filters slds-grid slds-wrap slds-grid_vertical-align-center" role="group" aria-label="Filter by type">
                     <template for:each={typeFilterOptions} for:item="item">
                         <lightning-input
                             key={item.type}
@@ -69,14 +82,14 @@
         </template>
 
         <template if:true={error}>
-            <div class="slds-notify slds-notify_alert slds-alert_error slds-m-bottom_small" role="alert">
+            <div class="slds-notify slds-notify_alert slds-alert_error slds-var-m-bottom_small" role="alert">
                 <span class="slds-assistive-text">error</span>
                 <h2>{error}</h2>
             </div>
         </template>
 
         <template if:true={warningMessage}>
-            <div class="slds-notify slds-notify_alert slds-alert_warning slds-m-bottom_small" role="alert">
+            <div class="slds-notify slds-notify_alert slds-alert_warning slds-var-m-bottom_small" role="alert">
                 <span class="slds-assistive-text">warning</span>
                 <h2>{warningMessage}</h2>
             </div>
@@ -84,8 +97,8 @@
 
         <template if:true={showEmptyState}>
             <div class="empty-state slds-box slds-theme_default">
-                <lightning-icon icon-name="utility:search" size="medium" alternative-text="No dependencies"></lightning-icon>
-                <h3 class="slds-text-heading_small slds-m-top_x-small">No dependencies found</h3>
+                <lightning-icon icon-name="utility:search" size="medium" alternative-text="No dependencies" title="No dependencies found"></lightning-icon>
+                <h3 class="slds-text-heading_small slds-var-m-top_x-small">No dependencies found</h3>
                 <p class="slds-text-body_small slds-text-color_weak">
                     We couldn't find components that reference this item at depth {maxDepth}. Try a deeper search or re-root the graph from a related component.
                 </p>
@@ -93,7 +106,7 @@
         </template>
 
         <template if:true={hasData}>
-            <div class="stats-grid slds-m-bottom_small">
+            <div class="stats-grid slds-var-m-bottom_small">
                 <article class="metric-card">
                     <span class="metric-label">Nodes</span>
                     <span class="metric-value">{statNodes}</span>
@@ -112,28 +125,28 @@
                 </article>
             </div>
 
-            <div class="legend slds-m-bottom_small" role="list" aria-label="Graph legend">
+            <div class="legend slds-var-m-bottom_small" role="list" aria-label="Graph legend">
                 <template for:each={legendItems} for:item="item">
-                    <span key={item.label} class="legend-pill" role="listitem">
-                        <span class="legend-pill-icon" style={item.style}>{item.icon}</span>
-                        {item.label}
+                    <span key={item.key} class="legend-pill" role="listitem">
+                        <span class={item.pillClass}>{item.icon}</span>
+                        <span>{item.label}</span>
                     </span>
                 </template>
             </div>
 
-            <div class="graph-viewport slds-box slds-m-bottom_small">
+            <div class="graph-viewport slds-box slds-var-m-bottom_small">
                 <svg class="graph-svg" preserveAspectRatio="xMinYMin meet" aria-label="Blast radius graph">
-                    <g class="graph-content"></g>
+                    <g class="graph-content" lwc:dom="manual"></g>
                 </svg>
             </div>
 
-            <section class="detail-panel slds-box slds-theme_default slds-m-bottom_small">
+            <section class="detail-panel slds-box slds-theme_default slds-var-m-bottom_small">
                 <template if:true={selectedNode}>
-                    <h3 class="slds-text-title_bold slds-m-bottom_x-small">{selectedNode.name}</h3>
-                    <p class="slds-text-body_small slds-m-bottom_xx-small"><strong>Type:</strong> {selectedNodeType}</p>
-                    <p class="slds-text-body_small slds-m-bottom_xx-small"><strong>Depth:</strong> {selectedNodeDepth}</p>
-                    <p class="slds-text-body_small slds-m-bottom_xx-small"><strong>Connections:</strong> {selectedNodeConnectionCount}</p>
-                    <p class="slds-text-body_small slds-m-bottom_x-small"><strong>Direction:</strong> {selectedDirectionLabel}</p>
+                    <h3 class="slds-text-title_bold slds-var-m-bottom_x-small">{selectedNode.name}</h3>
+                    <p class="slds-text-body_small slds-var-m-bottom_xx-small"><strong>Type:</strong> {selectedNodeType}</p>
+                    <p class="slds-text-body_small slds-var-m-bottom_xx-small"><strong>Depth:</strong> {selectedNodeDepth}</p>
+                    <p class="slds-text-body_small slds-var-m-bottom_xx-small"><strong>Connections:</strong> {selectedNodeConnectionCount}</p>
+                    <p class="slds-text-body_small slds-var-m-bottom_x-small"><strong>Direction:</strong> {selectedDirectionLabel}</p>
                     <template if:true={selectedNodeSetupUrl}>
                         <lightning-button
                             label="Open in Setup"

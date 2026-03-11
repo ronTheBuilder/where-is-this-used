@@ -1,5 +1,6 @@
 import { LightningElement, api, track } from 'lwc';
 import traceDataJourney from '@salesforce/apex/DataJourneyController.traceDataJourney';
+import { loadD3Sankey } from 'c/d3Loader';
 
 const DEFAULT_MAX_DEPTH = '2';
 const ROW_HEIGHT = 86;
@@ -34,16 +35,26 @@ const RELATIONSHIP_LABELS = {
     feeds_into: 'feeds into'
 };
 
+const SANKEY_MARGIN = 40;
+const SANKEY_LINK_COLORS = {
+    writes_to: { start: '#FE9339', end: '#FE5C4C' },
+    read_by: { start: '#1B96FF', end: '#0D9DDA' },
+    triggers: { start: '#9050E9', end: '#7526E3' },
+    feeds_into: { start: '#8fa7bf', end: '#54698D' }
+};
+
 export default class DataJourneyView extends LightningElement {
     @track loading = false;
     @track errorMessage;
     @track selectedDepth = DEFAULT_MAX_DEPTH;
     @track response;
     @track selectedNodeId;
+    @track viewMode = 'grid';
 
     _objectName;
     _fieldName;
     _lastLoadKey;
+    _sankeyRendered = false;
 
     nodesById = {};
     incomingEdgesByTarget = {};
@@ -193,6 +204,22 @@ export default class DataJourneyView extends LightningElement {
         return this.response?.edges?.length || 0;
     }
 
+    get isGridView() {
+        return this.viewMode === 'grid';
+    }
+
+    get isSankeyView() {
+        return this.viewMode === 'sankey';
+    }
+
+    get gridViewVariant() {
+        return this.viewMode === 'grid' ? 'brand' : 'neutral';
+    }
+
+    get sankeyViewVariant() {
+        return this.viewMode === 'sankey' ? 'brand' : 'neutral';
+    }
+
     get canvasHeight() {
         const rows = Math.max(this.upstreamNodes.length, this.downstreamNodes.length, 1);
         return Math.max(260, rows * ROW_HEIGHT + 70);
@@ -291,6 +318,189 @@ export default class DataJourneyView extends LightningElement {
         URL.revokeObjectURL(url);
     }
 
+    handleViewModeChange(event) {
+        const mode = event.currentTarget.dataset.mode;
+        if (mode === this.viewMode) {
+            return;
+        }
+        this.viewMode = mode;
+        if (mode === 'sankey' && this.response) {
+            // Defer to next tick so the container renders first
+            Promise.resolve().then(() => this.renderSankey());
+        }
+    }
+
+    buildSankeyData() {
+        const nodes = (this.response?.nodes || []).map(n => ({
+            id: n.id,
+            name: n.name,
+            nodeType: n.nodeType,
+            direction: n.direction
+        }));
+        const nodeIds = new Set(nodes.map(n => n.id));
+        const links = (this.response?.edges || [])
+            .filter(e => nodeIds.has(e.sourceId) && nodeIds.has(e.targetId))
+            .map(e => ({
+                source: e.sourceId,
+                target: e.targetId,
+                value: 1,
+                relationship: e.relationship
+            }));
+        return { nodes, links };
+    }
+
+    async renderSankey() {
+        if (!this.response || !this.isSankeyView) {
+            return;
+        }
+
+        const { nodes, links } = this.buildSankeyData();
+        if (!nodes.length) {
+            return;
+        }
+
+        // Load D3 + d3-sankey on demand
+        const d3Sankey = await loadD3Sankey(this);
+        const d3 = window.d3;
+
+        const container = this.template.querySelector('.sankey-container');
+        if (!container) {
+            return;
+        }
+
+        // Clear any previous render
+        while (container.firstChild) {
+            container.removeChild(container.firstChild);
+        }
+
+        const containerWidth = container.clientWidth || 800;
+        const height = Math.max(400, nodes.length * 40);
+        const width = containerWidth;
+        const margin = SANKEY_MARGIN;
+
+        // Build the SVG
+        const svg = d3
+            .select(container)
+            .append('svg')
+            .attr('width', width)
+            .attr('height', height)
+            .style('font-family', 'sans-serif');
+
+        // Define gradients defs
+        const defs = svg.append('defs');
+
+        // Zoom layer
+        const zoomGroup = svg.append('g').attr('class', 'zoom-layer');
+
+        svg.call(
+            d3.zoom()
+                .scaleExtent([0.2, 4])
+                .on('zoom', event => {
+                    zoomGroup.attr('transform', event.transform);
+                })
+        );
+
+        // Sankey layout
+        const sankeyLayout = d3Sankey
+            .sankey()
+            .nodeId(d => d.id)
+            .nodeAlign(d3Sankey.sankeyLeft)
+            .nodeWidth(15)
+            .nodePadding(10)
+            .extent([[margin, margin], [width - margin, height - margin]]);
+
+        // Deep clone so d3-sankey can mutate the objects
+        const graph = sankeyLayout({
+            nodes: nodes.map(n => ({ ...n })),
+            links: links.map(l => ({ ...l }))
+        });
+
+        // Build gradient for each unique relationship type
+        const gradientIds = {};
+        graph.links.forEach((link, i) => {
+            const rel = link.relationship || 'feeds_into';
+            const colors = SANKEY_LINK_COLORS[rel] || SANKEY_LINK_COLORS.feeds_into;
+            const gradId = `sankey-grad-${i}`;
+            gradientIds[i] = gradId;
+
+            const gradient = defs
+                .append('linearGradient')
+                .attr('id', gradId)
+                .attr('gradientUnits', 'userSpaceOnUse')
+                .attr('x1', link.source.x1)
+                .attr('x2', link.target.x0);
+            gradient.append('stop').attr('offset', '0%').attr('stop-color', colors.start).attr('stop-opacity', 0.6);
+            gradient.append('stop').attr('offset', '100%').attr('stop-color', colors.end).attr('stop-opacity', 0.6);
+        });
+
+        // Render links
+        zoomGroup
+            .append('g')
+            .attr('class', 'sankey-links')
+            .selectAll('path')
+            .data(graph.links)
+            .join('path')
+            .attr('class', 'sankey-link')
+            .attr('d', d3Sankey.sankeyLinkHorizontal())
+            .attr('stroke', (d, i) => `url(#${gradientIds[i]})`)
+            .attr('stroke-width', d => Math.max(1, d.width))
+            .attr('fill', 'none')
+            .attr('stroke-opacity', 0.5)
+            .on('mouseover', function () {
+                d3.select(this).attr('stroke-opacity', 0.9);
+            })
+            .on('mouseout', function () {
+                d3.select(this).attr('stroke-opacity', 0.5);
+            })
+            .append('title')
+            .text(d => {
+                const src = d.source.name || d.source.id;
+                const tgt = d.target.name || d.target.id;
+                const rel = d.relationship || '';
+                return `${src} → ${tgt}\n${rel}`;
+            });
+
+        // Render nodes
+        const nodeGroup = zoomGroup
+            .append('g')
+            .attr('class', 'sankey-nodes')
+            .selectAll('g')
+            .data(graph.nodes)
+            .join('g')
+            .attr('class', 'sankey-node')
+            .style('cursor', 'pointer')
+            .on('click', (event, d) => {
+                // Notify selection through the existing pattern
+                this.selectedNodeId = d.id;
+            });
+
+        nodeGroup
+            .append('rect')
+            .attr('x', d => d.x0)
+            .attr('y', d => d.y0)
+            .attr('height', d => Math.max(1, d.y1 - d.y0))
+            .attr('width', d => d.x1 - d.x0)
+            .attr('fill', d => NODE_COLORS[d.nodeType] || '#54698D')
+            .attr('rx', 3)
+            .attr('ry', 3)
+            .append('title')
+            .text(d => `${d.name}\nType: ${d.nodeType || ''}\nDirection: ${d.direction || ''}`);
+
+        // Labels
+        nodeGroup
+            .append('text')
+            .attr('class', 'sankey-label')
+            .attr('x', d => (d.x0 < width / 2 ? d.x1 + 6 : d.x0 - 6))
+            .attr('y', d => (d.y1 + d.y0) / 2)
+            .attr('dy', '0.35em')
+            .attr('text-anchor', d => (d.x0 < width / 2 ? 'start' : 'end'))
+            .attr('font-size', 11)
+            .attr('fill', '#032d60')
+            .text(d => d.name);
+
+        this._sankeyRendered = true;
+    }
+
     async loadJourney() {
         if (!this.hasValidInput) {
             return;
@@ -310,6 +520,10 @@ export default class DataJourneyView extends LightningElement {
             this.reindexData();
             this.selectedNodeId = this.rootNode?.id || null;
             this._lastLoadKey = this.computeLoadKey();
+            this._sankeyRendered = false;
+            if (this.viewMode === 'sankey') {
+                Promise.resolve().then(() => this.renderSankey());
+            }
         } catch (error) {
             this.response = undefined;
             this.nodesById = {};

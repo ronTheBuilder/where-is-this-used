@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExternalClientAppOauthSettings xmlns="http://soap.sforce.com/2006/04/metadata">
+    <callbackUrl>https://login.salesforce.com/services/oauth2/callback</callbackUrl>
+    <isClientCredentialsEnabled>false</isClientCredentialsEnabled>
+    <isConsumerSecretRequired>true</isConsumerSecretRequired>
+    <scopes>Api</scopes>
+    <scopes>RefreshToken</scopes>
+</ExternalClientAppOauthSettings>

@@ -299,6 +299,7 @@ public with sharing class ProcessFlowService {
 
             String flowVersionId = String.valueOf(row.get('Id'));
             Map<String, Object> metadata = getFlowMetadata(flowVersionId);
+            FlowFieldAnalyzer.FlowFieldAnalysis fieldAnalysis = FlowFieldAnalyzer.analyzeFlow(metadata);
             Integer phase = determineFlowPhase(row, metadata);
             if (phase == null) {
                 warnings.add('Unable to determine flow execution phase for flow version ' + flowVersionId + '.');
@@ -320,7 +321,7 @@ public with sharing class ProcessFlowService {
                 triggerType = inferTriggerTypeFromMetadata(metadata);
             }
 
-            phaseMap.get(phase).steps.add(buildStep(
+            AutomationStep flowStep = buildStep(
                 flowVersionId,
                 name,
                 phase == 7 ? 'Flow_BeforeSave' : (phase == 10 ? 'Flow_AfterSave' : 'Flow_Async'),
@@ -330,7 +331,10 @@ public with sharing class ProcessFlowService {
                 String.join(contexts, ', '),
                 buildFlowDescription(triggerType, metadata),
                 '/lightning/setup/Flows/home'
-            ));
+            );
+            flowStep.fieldsReferenced = fieldAnalysis.fieldsRead;
+            flowStep.fieldsModified = fieldAnalysis.fieldsWritten;
+            phaseMap.get(phase).steps.add(flowStep);
         }
     }
 

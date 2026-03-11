@@ -1,7 +1,7 @@
 <template>
     <lightning-card title="Where Is This Used?" icon-name="utility:search">
         <div slot="actions">
-            <lightning-button-icon icon-name="utility:settings" alternative-text="Setup" onclick={handleTabClick} data-tab="setup"></lightning-button-icon>
+            <lightning-button-icon icon-name="utility:settings" alternative-text="Open Setup" title="Open Setup" aria-label="Open Setup tab" onclick={handleTabClick} data-tab="setup"></lightning-button-icon>
         </div>
 
         <!-- Tab bar -->
@@ -34,13 +34,13 @@
                     </c-metadata-picker>
 
                     <template if:true={isLoading}>
-                        <div class="slds-align_absolute-center slds-m-top_large">
+                        <div class="slds-align_absolute-center slds-var-m-top_large">
                             <lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner>
                         </div>
                     </template>
 
                     <template if:true={error}>
-                        <div class="slds-m-top_medium">
+                        <div class="slds-var-m-top_medium">
                             <div class="slds-notify slds-notify_alert slds-alert_error" role="alert">
                                 <span class="slds-assistive-text">error</span>
                                 <h2>{error}</h2>
@@ -52,14 +52,14 @@
                         <c-dependency-results
                             search-response={searchResponse}
                             onblastradius={handleBlastRadius}
-                            class="slds-m-top_medium">
+                            class="slds-var-m-top_medium">
                         </c-dependency-results>
                     </template>
 
                     <template if:false={hasResults}>
                         <template if:false={isLoading}>
                             <template if:false={error}>
-                                <div class="slds-illustration slds-illustration_small slds-m-top_x-large">
+                                <div class="slds-illustration slds-illustration_small slds-var-m-top_x-large">
                                     <div class="slds-text-longform">
                                         <h3 class="slds-text-heading_medium">Find metadata dependencies</h3>
                                         <p class="slds-text-body_regular slds-text-color_weak">
@@ -91,7 +91,7 @@
                         </c-blast-radius-graph>
                     </template>
                     <template if:false={hasBlastContext}>
-                        <div class="slds-text-body_regular slds-text-color_weak slds-p-around_medium">
+                        <div class="slds-text-body_regular slds-text-color_weak slds-var-p-around_medium">
                             Search dependencies first, then click Show Blast Radius.
                         </div>
                     </template>

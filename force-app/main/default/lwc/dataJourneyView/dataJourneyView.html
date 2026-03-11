@@ -1,12 +1,12 @@
 <template>
     <section class="journey-shell slds-card">
-        <header class="slds-grid slds-grid_vertical-align-center slds-grid_align-spread slds-p-around_small header-row">
+        <header class="slds-grid slds-grid_vertical-align-center slds-grid_align-spread slds-var-p-around_small header-row">
             <h2 class="slds-text-heading_small">{headerTitle}</h2>
-            <lightning-button-icon icon-name="utility:close" alternative-text="Close" onclick={handleClose}></lightning-button-icon>
+            <lightning-button-icon icon-name="utility:close" alternative-text="Close" title="Close" aria-label="Close panel" onclick={handleClose}></lightning-button-icon>
         </header>
 
-        <div class="slds-p-horizontal_small slds-p-bottom_small toolbar slds-grid slds-wrap slds-grid_vertical-align-center slds-grid_align-spread">
-            <div class="slds-grid slds-grid_vertical-align-center slds-m-right_medium">
+        <div class="slds-var-p-horizontal_small slds-var-p-bottom_small toolbar slds-grid slds-wrap slds-grid_vertical-align-center slds-grid_align-spread">
+            <div class="slds-grid slds-grid_vertical-align-center slds-var-m-right_medium">
                 <lightning-combobox
                     name="depth"
                     label="Trace depth"
@@ -16,8 +16,24 @@
                     onchange={handleDepthChange}
                     class="depth-picklist">
                 </lightning-combobox>
-                <span class="slds-m-left_small stat-pill">{totalNodeCount} nodes</span>
-                <span class="slds-m-left_x-small stat-pill">{totalEdgeCount} links</span>
+                <span class="slds-var-m-left_small stat-pill">{totalNodeCount} nodes</span>
+                <span class="slds-var-m-left_x-small stat-pill">{totalEdgeCount} links</span>
+                <div class="view-toggle slds-var-m-left_medium">
+                    <lightning-button-group>
+                        <lightning-button
+                            label="Grid"
+                            variant={gridViewVariant}
+                            data-mode="grid"
+                            onclick={handleViewModeChange}>
+                        </lightning-button>
+                        <lightning-button
+                            label="Sankey"
+                            variant={sankeyViewVariant}
+                            data-mode="sankey"
+                            onclick={handleViewModeChange}>
+                        </lightning-button>
+                    </lightning-button-group>
+                </div>
             </div>
             <div class="slds-grid slds-grid_vertical-align-center slds-wrap slds-gutters_x-small">
                 <span class="legend-item"><span class="legend-dot field"></span>Field</span>
@@ -26,72 +42,78 @@
                 <span class="legend-item"><span class="legend-dot vr"></span>Validation Rule</span>
                 <span class="legend-item"><span class="legend-dot formula"></span>Formula</span>
                 <span class="legend-item"><span class="legend-dot workflow"></span>Workflow Update</span>
-                <lightning-button class="slds-m-left_small" label="Export Journey as Text" onclick={handleExportText} disabled={loading}></lightning-button>
+                <lightning-button class="slds-var-m-left_small" label="Export Journey as Text" onclick={handleExportText} disabled={loading}></lightning-button>
             </div>
         </div>
 
         <template if:true={errorMessage}>
-            <div class="slds-notify slds-notify_alert slds-alert_error slds-m-around_small" role="alert">
+            <div class="slds-notify slds-notify_alert slds-alert_error slds-var-m-around_small" role="alert">
                 <h2>{errorMessage}</h2>
             </div>
         </template>
 
         <template if:true={hasResponse}>
             <template if:true={response.limitReached}>
-                <div class="slds-notify slds-notify_alert slds-alert_warning slds-m-horizontal_small slds-m-bottom_small" role="alert">
+                <div class="slds-notify slds-notify_alert slds-alert_warning slds-var-m-horizontal_small slds-var-m-bottom_small" role="alert">
                     <h2>{warningMessage}</h2>
                 </div>
             </template>
 
-            <div class="journey-canvas" style={canvasStyle}>
-                <svg class="connector-layer" lwc:dom="manual"></svg>
+            <template if:true={isGridView}>
+                <div class="journey-canvas" style={canvasStyle}>
+                    <svg class="connector-layer" lwc:dom="manual"></svg>
 
-                <div class="journey-grid" style={canvasStyle}>
-                    <section class="journey-column">
-                        <h3 class="column-title">Upstream</h3>
-                        <template for:each={upstreamNodes} for:item="node">
-                            <button key={node.id} class={node.cardClass} data-id={node.id} onclick={handleNodeSelect}>
-                                <span class="node-icon" style={node.colorStyle}></span>
-                                <span class="node-name">{node.name}</span>
-                                <span class={node.relationshipClass}>{node.relationshipLabel}</span>
-                            </button>
-                        </template>
-                    </section>
+                    <div class="journey-grid" style={canvasStyle}>
+                        <section class="journey-column">
+                            <h3 class="column-title">Upstream</h3>
+                            <template for:each={upstreamNodes} for:item="node">
+                                <button key={node.id} class={node.cardClass} data-id={node.id} onclick={handleNodeSelect}>
+                                    <span class="node-icon" style={node.colorStyle}></span>
+                                    <span class="node-name">{node.name}</span>
+                                    <span class={node.relationshipClass}>{node.relationshipLabel}</span>
+                                </button>
+                            </template>
+                        </section>
 
-                    <section class="journey-column root-column">
-                        <h3 class="column-title">Root Field</h3>
-                        <template if:true={rootNode}>
-                            <button class={rootNode.cardClass} data-id={rootNode.id} onclick={handleNodeSelect}>
-                                <span class="node-icon large" style={rootNode.colorStyle}></span>
-                                <span class="node-name root-name">{rootNode.name}</span>
-                                <span class={rootNode.relationshipClass}>{rootNode.relationshipLabel}</span>
-                            </button>
-                        </template>
-                    </section>
+                        <section class="journey-column root-column">
+                            <h3 class="column-title">Root Field</h3>
+                            <template if:true={rootNode}>
+                                <button class={rootNode.cardClass} data-id={rootNode.id} onclick={handleNodeSelect}>
+                                    <span class="node-icon large" style={rootNode.colorStyle}></span>
+                                    <span class="node-name root-name">{rootNode.name}</span>
+                                    <span class={rootNode.relationshipClass}>{rootNode.relationshipLabel}</span>
+                                </button>
+                            </template>
+                        </section>
 
-                    <section class="journey-column">
-                        <h3 class="column-title">Downstream</h3>
-                        <template for:each={downstreamNodes} for:item="node">
-                            <button key={node.id} class={node.cardClass} data-id={node.id} style={node.indentStyle} onclick={handleNodeSelect}>
-                                <span class="node-icon" style={node.colorStyle}></span>
-                                <span class="node-name">{node.name}</span>
-                                <span class={node.relationshipClass}>{node.relationshipLabel}</span>
-                            </button>
-                        </template>
-                    </section>
+                        <section class="journey-column">
+                            <h3 class="column-title">Downstream</h3>
+                            <template for:each={downstreamNodes} for:item="node">
+                                <button key={node.id} class={node.cardClass} data-id={node.id} style={node.indentStyle} onclick={handleNodeSelect}>
+                                    <span class="node-icon" style={node.colorStyle}></span>
+                                    <span class="node-name">{node.name}</span>
+                                    <span class={node.relationshipClass}>{node.relationshipLabel}</span>
+                                </button>
+                            </template>
+                        </section>
+                    </div>
                 </div>
-            </div>
+            </template>
 
-            <section class="detail-panel slds-m-around_small">
+            <template if:true={isSankeyView}>
+                <div class="sankey-container" lwc:dom="manual"></div>
+            </template>
+
+            <section class="detail-panel slds-var-m-around_small">
                 <h3 class="slds-text-title_bold">Selected Node Details</h3>
                 <template if:true={selectedNode}>
-                    <div class="slds-m-top_x-small"><strong>Name:</strong> {selectedNode.name}</div>
+                    <div class="slds-var-m-top_x-small"><strong>Name:</strong> {selectedNode.name}</div>
                     <div><strong>Type:</strong> {selectedNodeTypeLabel}</div>
                     <div><strong>Direction:</strong> {selectedDirectionLabel}</div>
                     <div><strong>Relationship:</strong> {selectedRelationshipSummary}</div>
                     <div><strong>Detail:</strong> {selectedDetailText}</div>
                     <template if:true={canOpenSetup}>
-                        <lightning-button class="slds-m-top_small" label="Open in Setup" onclick={handleOpenSetup}></lightning-button>
+                        <lightning-button class="slds-var-m-top_small" label="Open in Setup" onclick={handleOpenSetup}></lightning-button>
                     </template>
                 </template>
             </section>

@@ -201,6 +201,41 @@
     position: relative;
 }
 
+.view-toggle {
+    display: inline-flex;
+    align-items: center;
+}
+
+.sankey-container {
+    background: #f8fafc;
+    border-top: 1px solid #d8dde6;
+    min-height: 400px;
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+}
+
+.sankey-container svg {
+    display: block;
+}
+
+.sankey-node rect {
+    transition: opacity 0.15s;
+}
+
+.sankey-node:hover rect {
+    opacity: 0.85;
+}
+
+.sankey-label {
+    pointer-events: none;
+    user-select: none;
+}
+
+.sankey-link {
+    cursor: default;
+}
+
 @media (max-width: 900px) {
     .journey-grid {
         grid-template-columns: 1fr;
