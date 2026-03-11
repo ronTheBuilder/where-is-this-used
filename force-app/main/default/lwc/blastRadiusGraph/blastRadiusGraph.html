@@ -1,6 +1,6 @@
 <template>
     <section class="blast-radius-root slds-size_1-of-1">
-        <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_small">
+        <div class="slds-grid slds-grid_vertical-align-center slds-var-m-bottom_small">
             <div class="slds-grid slds-grid_vertical-align-center" role="group" aria-label="Back to results and graph title">
                 <lightning-button-icon
                     icon-name="utility:back"
@@ -13,11 +13,10 @@
                 <span class="slds-assistive-text">Back to results</span>
                 <h2 class="slds-text-heading_small">Blast Radius: {componentName}</h2>
             </div>
-            <span class="direction-hint">Direction: arrows point to components that use the upstream node.</span>
         </div>
 
-        <div class="slds-grid slds-wrap slds-grid_align-spread slds-gutters_small slds-var-m-bottom_small controls-bar">
-            <div class="slds-button-group" role="group" aria-label="Depth">
+        <div class="controls-bar slds-grid slds-wrap slds-grid_vertical-align-center slds-var-m-bottom_small">
+            <div class="slds-button-group slds-var-m-right_small" role="group" aria-label="Depth">
                 <template for:each={depthButtons} for:item="depth">
                     <lightning-button
                         key={depth.value}
@@ -28,24 +27,23 @@
                     </lightning-button>
                 </template>
             </div>
-            <div class="slds-grid slds-gutters_x-small slds-grid_vertical-align-center">
-                <div class="view-toggle slds-button-group" role="group" aria-label="View mode">
-                    <template for:each={viewModeButtons} for:item="btn">
-                        <lightning-button
-                            key={btn.value}
-                            label={btn.label}
-                            variant={btn.variant}
-                            data-mode={btn.value}
-                            onclick={handleViewModeChange}>
-                        </lightning-button>
-                    </template>
-                </div>
-                <lightning-button label="Zoom Fit" onclick={handleZoomFit}></lightning-button>
-                <lightning-button-menu alternative-text="Export graph" title="Export graph" aria-label="Export graph" onselect={handleExportSelect}>
-                    <lightning-menu-item value="mermaid" label="Copy as Mermaid"></lightning-menu-item>
-                    <lightning-menu-item value="svg" label="Download SVG"></lightning-menu-item>
-                </lightning-button-menu>
+            <div class="view-toggle slds-button-group slds-var-m-right_small" role="group" aria-label="View mode">
+                <template for:each={viewModeButtons} for:item="btn">
+                    <lightning-button
+                        key={btn.value}
+                        label={btn.label}
+                        variant={btn.variant}
+                        data-mode={btn.value}
+                        onclick={handleViewModeChange}>
+                    </lightning-button>
+                </template>
             </div>
+            <lightning-button label="Zoom Fit" onclick={handleZoomFit} class="slds-var-m-right_x-small"></lightning-button>
+            <lightning-button-menu alternative-text="Export graph" title="Export graph" aria-label="Export graph" onselect={handleExportSelect} class="slds-var-m-right_small">
+                <lightning-menu-item value="mermaid" label="Copy as Mermaid"></lightning-menu-item>
+                <lightning-menu-item value="svg" label="Download SVG"></lightning-menu-item>
+            </lightning-button-menu>
+            <span class="direction-hint">Direction: arrows point to components that use the upstream node.</span>
         </div>
 
         <div class="slds-grid slds-wrap slds-gutters_x-small slds-grid_align-end controls-grid slds-var-m-bottom_small">

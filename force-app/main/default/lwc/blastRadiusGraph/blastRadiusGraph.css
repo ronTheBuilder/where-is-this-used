@@ -16,8 +16,8 @@
 .direction-hint {
     color: #44403c;
     font-size: var(--slds-c-font-size-text-small, 0.875rem);
-    max-width: 30rem;
-    text-align: right;
+    margin-left: auto;
+    white-space: nowrap;
 }
 
 .empty-state {
@@ -247,10 +247,7 @@
     }
 }
 
-/* View mode toggle button group */
-.view-toggle {
-    margin-right: 0.5rem;
-}
+/* View mode toggle button group — spacing via slds-var-m-right_small in template */
 
 /* D3 force/tree link — reuses .edge stroke styles; marker-end handled inline */
 .d3-link {
