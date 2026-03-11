@@ -7,7 +7,7 @@
                     <ul>
                         <li class={modeNavClass}>
                             <a class="slds-nav-vertical__action" data-section="mode" onclick={handleNavClick}>
-                                <lightning-icon icon-name="utility:plug" size="x-small" class="nav-icon"></lightning-icon>
+                                <lightning-icon icon-name="utility:plug" size="x-small" class="nav-icon" alternative-text="Connection mode" title="Connection mode"></lightning-icon>
                                 <span class="slds-var-m-left_small">Connection Mode</span>
                                 <template if:true={isModeComplete}>
                                     <lightning-icon icon-name="utility:check" size="xx-small" variant="success" class="slds-var-m-left_small nav-check" alternative-text="Complete"></lightning-icon>
@@ -17,7 +17,7 @@
                         <template if:true={isSessionMode}>
                             <li class={sessionNavClass}>
                                 <a class="slds-nav-vertical__action" data-section="session" onclick={handleNavClick}>
-                                    <lightning-icon icon-name="utility:lock" size="x-small" class="nav-icon"></lightning-icon>
+                                    <lightning-icon icon-name="utility:lock" size="x-small" class="nav-icon" alternative-text="Session setup" title="Session setup"></lightning-icon>
                                     <span class="slds-var-m-left_small">Session Setup</span>
                                     <template if:true={isSessionSetupComplete}>
                                         <lightning-icon icon-name="utility:check" size="xx-small" variant="success" class="slds-var-m-left_small nav-check" alternative-text="Complete"></lightning-icon>
@@ -28,20 +28,20 @@
                         <template if:false={isSessionMode}>
                             <li class={ncNavClass}>
                                 <a class="slds-nav-vertical__action" data-section="namedCredential" onclick={handleNavClick}>
-                                    <lightning-icon icon-name="utility:key" size="x-small" class="nav-icon"></lightning-icon>
+                                    <lightning-icon icon-name="utility:key" size="x-small" class="nav-icon" alternative-text="Named Credential" title="Named Credential"></lightning-icon>
                                     <span class="slds-var-m-left_small">Named Credential</span>
                                 </a>
                             </li>
                         </template>
                         <li class={permNavClass}>
                             <a class="slds-nav-vertical__action" data-section="permissions" onclick={handleNavClick}>
-                                <lightning-icon icon-name="utility:people" size="x-small" class="nav-icon"></lightning-icon>
+                                <lightning-icon icon-name="utility:people" size="x-small" class="nav-icon" alternative-text="Permissions" title="Permissions"></lightning-icon>
                                 <span class="slds-var-m-left_small">Permissions</span>
                             </a>
                         </li>
                         <li class={testNavClass}>
                             <a class="slds-nav-vertical__action" data-section="test" onclick={handleNavClick}>
-                                <lightning-icon icon-name="utility:check" size="x-small" class="nav-icon"></lightning-icon>
+                                <lightning-icon icon-name="utility:check" size="x-small" class="nav-icon" alternative-text="Test connection" title="Test connection"></lightning-icon>
                                 <span class="slds-var-m-left_small">Test Connection</span>
                                 <template if:true={isTestComplete}>
                                     <lightning-icon icon-name="utility:check" size="xx-small" variant="success" class="slds-var-m-left_small nav-check" alternative-text="Complete"></lightning-icon>
@@ -63,7 +63,7 @@
                     <div class="mode-cards">
                         <div class={sessionCardClass} data-mode="session" onclick={handleModeSelect}>
                             <div class="mode-card-header">
-                                <lightning-icon icon-name="utility:lock" size="small"></lightning-icon>
+                                <lightning-icon icon-name="utility:lock" size="small" alternative-text="Session Auth" title="Session Auth"></lightning-icon>
                                 <div class="mode-card-title">
                                     <h3 class="slds-text-heading_small">Session Auth</h3>
                                     <span class="slds-badge slds-theme_success slds-var-m-left_x-small">Recommended</span>
@@ -78,7 +78,7 @@
                         </div>
                         <div class={ncCardClass} data-mode="namedCredential" onclick={handleModeSelect}>
                             <div class="mode-card-header">
-                                <lightning-icon icon-name="utility:key" size="small"></lightning-icon>
+                                <lightning-icon icon-name="utility:key" size="small" alternative-text="Named Credential" title="Named Credential"></lightning-icon>
                                 <div class="mode-card-title">
                                     <h3 class="slds-text-heading_small">Named Credential</h3>
                                 </div>
@@ -121,6 +121,7 @@
                                         icon-name="utility:copy"
                                         alternative-text="Copy URL"
                                         title="Copy URL"
+                                        aria-label="Copy URL"
                                         size="small"
                                         class="slds-var-m-left_xx-small"
                                         onclick={handleCopyDomain}>
@@ -350,8 +351,9 @@
                                         <td class="slds-cell-shrink">
                                             <lightning-button-icon
                                                 icon-name="utility:delete"
-                                                alternative-text="Remove"
+                                                alternative-text="Remove assignment"
                                                 title="Remove assignment"
+                                                aria-label="Remove assignment"
                                                 variant="bare"
                                                 data-id={assignment.id}
                                                 onclick={handleRemoveAssignment}>

@@ -39,6 +39,7 @@
         <members>exportUtils</members>
         <members>metadataPicker</members>
         <members>processFlowMap</members>
+        <members>searchableCombobox</members>
         <members>setupWizard</members>
         <members>wituConstants</members>
         <name>LightningComponentBundle</name>

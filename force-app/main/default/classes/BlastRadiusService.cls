@@ -85,10 +85,14 @@ public with sharing class BlastRadiusService {
             throw new BlastRadiusServiceException('Metadata type and component name are required.');
         }
 
-        try {
-            ToolingApiClient.validateComponentName(componentName);
-        } catch (ToolingApiClient.ToolingApiClientException ex) {
-            throw new BlastRadiusServiceException(ex.getMessage());
+        // Flow names may contain spaces/dashes (MasterLabel fallback),
+        // so skip strict regex validation for Flows.
+        if (metadataType != 'Flow') {
+            try {
+                ToolingApiClient.validateComponentName(componentName);
+            } catch (ToolingApiClient.ToolingApiClientException ex) {
+                throw new BlastRadiusServiceException(ex.getMessage());
+            }
         }
         Integer effectiveDepth = normalizeMaxDepth(maxDepth);
         String normalizedRootType = normalizeTypeForRoot(metadataType);

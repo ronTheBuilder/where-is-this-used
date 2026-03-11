@@ -2,60 +2,40 @@
     <div class="slds-grid slds-wrap slds-gutters_small slds-var-m-bottom_medium">
         <!-- Metadata Type -->
         <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
-            <lightning-combobox
+            <c-searchable-combobox
                 label="Metadata Type"
                 value={metadataType}
                 options={metadataTypeOptions}
                 placeholder="Select type..."
                 onchange={handleMetadataTypeChange}>
-            </lightning-combobox>
+            </c-searchable-combobox>
         </div>
 
-        <!-- Object picker (for fields) -->
+        <!-- Object picker (for fields, record types, etc.) -->
         <template if:true={showObjectPicker}>
             <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
-                <lightning-combobox
+                <c-searchable-combobox
                     label="Object"
                     value={selectedObject}
                     options={objectOptions}
-                    placeholder="Select object..."
+                    placeholder="Search objects..."
                     onchange={handleObjectChange}>
-                </lightning-combobox>
+                </c-searchable-combobox>
             </div>
         </template>
 
-        <!-- Apex Class search-as-you-type -->
-        <template if:true={showApexSearch}>
-            <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
-                <lightning-input
-                    type="search"
-                    label="Search Apex Classes"
-                    value={apexSearchTerm}
-                    placeholder="Type to search..."
-                    onchange={handleApexSearchChange}>
-                </lightning-input>
-            </div>
-            <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
-                <lightning-combobox
-                    label="Apex Class"
-                    value={selectedComponent}
-                    options={componentOptions}
-                    placeholder="Select class..."
-                    onchange={handleComponentChange}>
-                </lightning-combobox>
-            </div>
-        </template>
-
-        <!-- Component picker (non-Apex types) -->
-        <template if:true={showComponentPickerNonApex}>
-            <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12">
-                <lightning-combobox
+        <!-- Component picker (all types including Apex) -->
+        <template if:true={showComponentPicker}>
+            <div class={componentPickerColClass}>
+                <c-searchable-combobox
                     label={componentLabel}
                     value={selectedComponent}
                     options={componentOptions}
-                    placeholder="Select..."
+                    placeholder={componentPlaceholder}
+                    server-search={isApexClass}
+                    onsearch={handleComponentSearch}
                     onchange={handleComponentChange}>
-                </lightning-combobox>
+                </c-searchable-combobox>
             </div>
         </template>
 

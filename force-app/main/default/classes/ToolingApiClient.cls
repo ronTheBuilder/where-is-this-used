@@ -400,8 +400,10 @@ public with sharing class ToolingApiClient {
      * reliably available on the Flow sObject.
      */
     private static ToolingQueryResponse queryFlowSObjectOnly(Integer maxRows) {
+        // FullName/Metadata fields cannot be queried when results contain more
+        // than one row (Tooling API limitation), so use MasterLabel as ApiName.
         ToolingQueryResponse flowResult = queryToolingRecords(
-            'SELECT Id, FullName, MasterLabel, ProcessType, Status FROM Flow WHERE Status = \'Active\'',
+            'SELECT Id, MasterLabel, ProcessType, Status FROM Flow WHERE Status = \'Active\'',
             maxRows
         );
 
@@ -415,14 +417,12 @@ public with sharing class ToolingApiClient {
             if (row == null) continue;
             String flowId = row.get('Id') == null ? null : String.valueOf(row.get('Id'));
             String masterLabel = row.get('MasterLabel') == null ? null : String.valueOf(row.get('MasterLabel'));
-            String fullName = row.get('FullName') == null ? null : String.valueOf(row.get('FullName'));
-            String apiName = String.isNotBlank(fullName) ? fullName : masterLabel;
             if (String.isBlank(flowId)) continue;
 
             Map<String, Object> shapedRecord = new Map<String, Object>{
                 'Id' => flowId,
                 'FlowDefinitionView' => new Map<String, Object>{
-                    'ApiName' => apiName,
+                    'ApiName' => masterLabel,
                     'Label' => masterLabel
                 }
             };

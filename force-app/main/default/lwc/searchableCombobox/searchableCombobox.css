@@ -1,0 +1,31 @@
+:host {
+    display: block;
+}
+
+.slds-form-element__label {
+    display: block;
+    margin-bottom: 0.125rem;
+    font-size: 0.75rem;
+    color: var(--slds-g-color-neutral-base-30, #444);
+}
+
+.slds-dropdown {
+    max-height: 15rem;
+    overflow-y: auto;
+}
+
+.no-results {
+    color: var(--slds-g-color-neutral-base-50, #706e6b);
+    font-style: italic;
+}
+
+.clear-btn {
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+}
+
+.slds-input:disabled {
+    background-color: var(--slds-g-color-neutral-base-95, #ecebea);
+}

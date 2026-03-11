@@ -1,0 +1,71 @@
+<template>
+    <div class={containerClass} onkeydown={handleKeyDown}>
+        <label class="slds-form-element__label" if:true={label}>{label}</label>
+        <div class="slds-form-element__control">
+            <div class={comboboxClass} aria-expanded={isOpenString} aria-haspopup="listbox" role="combobox">
+                <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
+                    <input
+                        type="text"
+                        class="slds-input slds-combobox__input"
+                        role="textbox"
+                        autocomplete="off"
+                        placeholder={currentPlaceholder}
+                        value={inputValue}
+                        disabled={disabled}
+                        onfocus={handleFocus}
+                        oninput={handleInput}
+                        data-element="input"
+                        aria-label={inputAriaLabel}
+                        aria-controls="listbox"
+                        aria-autocomplete="list"
+                    />
+                    <template if:true={showClearButton}>
+                        <button
+                            type="button"
+                            class="slds-button slds-button_icon slds-input__icon slds-input__icon_right clear-btn"
+                            title="Clear selection"
+                            aria-label="Clear selection"
+                            onclick={handleClear}>
+                            <lightning-icon icon-name="utility:close" size="xx-small" alternative-text="Clear" title="Clear"></lightning-icon>
+                        </button>
+                    </template>
+                    <template if:false={showClearButton}>
+                        <span class="slds-icon_container slds-input__icon slds-input__icon_right">
+                            <lightning-icon icon-name="utility:search" size="xx-small" alternative-text="Search"></lightning-icon>
+                        </span>
+                    </template>
+                </div>
+                <div id="listbox" class="slds-dropdown slds-dropdown_length-7 slds-dropdown_fluid" role="listbox" if:true={isOpen}>
+                    <ul class="slds-listbox slds-listbox_vertical" role="presentation">
+                        <template if:true={hasFilteredOptions}>
+                            <template for:each={filteredOptions} for:item="opt">
+                                <li key={opt.value} role="presentation" class="slds-listbox__item">
+                                    <div
+                                        class={opt.itemClass}
+                                        role="option"
+                                        aria-selected={opt.isSelected}
+                                        data-value={opt.value}
+                                        onclick={handleOptionClick}
+                                        onmouseenter={handleOptionHover}>
+                                        <span class="slds-media__body">
+                                            <span class="slds-truncate">{opt.label}</span>
+                                        </span>
+                                    </div>
+                                </li>
+                            </template>
+                        </template>
+                        <template if:false={hasFilteredOptions}>
+                            <li role="presentation" class="slds-listbox__item">
+                                <div class="slds-media slds-listbox__option slds-listbox__option_plain" role="option">
+                                    <span class="slds-media__body">
+                                        <span class="slds-truncate no-results">No results found</span>
+                                    </span>
+                                </div>
+                            </li>
+                        </template>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>

@@ -21,7 +21,7 @@ public with sharing class MetadataPickerController {
         for (String objectApiName : objectNames) {
             Schema.DescribeSObjectResult objectDescribe = described.get(objectApiName).getDescribe();
             if (objectDescribe.isAccessible() && !objectDescribe.isCustomSetting()) {
-                results.add(new DependencyService.MetadataOption(objectDescribe.getLabel(), objectApiName));
+                results.add(new DependencyService.MetadataOption(objectDescribe.getLabel(), objectDescribe.getName()));
             }
         }
         return results;

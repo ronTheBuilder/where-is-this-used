@@ -83,10 +83,15 @@ public with sharing class DependencyService {
             throw new DependencyServiceException('This metadata type is not yet supported.');
         }
 
-        try {
-            ToolingApiClient.validateComponentName(componentName);
-        } catch (ToolingApiClient.ToolingApiClientException ex) {
-            throw new DependencyServiceException(ex.getMessage());
+        // Flow names may contain spaces/dashes when sourced from the
+        // Level 4 fallback (MasterLabel), so skip strict regex validation.
+        // SOQL injection is handled by String.escapeSingleQuotes in ToolingApiClient.
+        if (metadataType != 'Flow') {
+            try {
+                ToolingApiClient.validateComponentName(componentName);
+            } catch (ToolingApiClient.ToolingApiClientException ex) {
+                throw new DependencyServiceException(ex.getMessage());
+            }
         }
         String trimmedName = componentName.trim();
 
@@ -838,7 +843,8 @@ public with sharing class DependencyService {
             return new List<DependencyRecord>();
         }
 
-        ToolingApiClient.validateComponentName(flowApiName);
+        // Flow names may contain spaces/dashes (MasterLabel fallback),
+        // so skip strict regex validation here.
         String trimmedName = flowApiName.trim();
 
         ToolingApiClient.ToolingQueryResponse flowQuery = ToolingApiClient.queryFlowVersionsWithFallback(

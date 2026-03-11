@@ -13,8 +13,8 @@ import getCustomMetadataTypes from "@salesforce/apex/MetadataPickerController.ge
 import getFormulaFields from "@salesforce/apex/MetadataPickerController.getFormulaFields";
 import searchDependencies from "@salesforce/apex/DependencyController.searchDependencies";
 
-/** Debounce delay for Apex class search (ms) */
-const APEX_SEARCH_DEBOUNCE_MS = 300;
+/** Debounce delay for server-side search (ms) */
+const SEARCH_DEBOUNCE_MS = 300;
 
 // Suffixes/patterns for non-business objects (history tracking, sharing, feeds, etc.)
 const NOISE_SUFFIXES = ["changeevent", "history", "share", "feed", "tag"];
@@ -48,7 +48,6 @@ export default class MetadataPicker extends LightningElement {
     @track metadataType = "";
     @track selectedObject = "";
     @track selectedComponent = "";
-    @track apexSearchTerm = "";
     @track metadataTypeOptions = [];
     @track objectOptions = [];
     @track componentOptions = [];
@@ -62,7 +61,7 @@ export default class MetadataPicker extends LightningElement {
     @track recentSearches = [];
 
     // Internal state
-    _apexSearchTimeout = null;
+    _searchTimeout = null;
     _allObjectOptions = [];
     _allFlowOptions = [];
     _activeFlowOptions = [];
@@ -94,14 +93,23 @@ export default class MetadataPicker extends LightningElement {
         return this.metadataType !== "";
     }
 
-    /** Apex Class uses search-as-you-type instead of static dropdown */
-    get showApexSearch() {
+    /** Whether the current type is Apex Class (needs server-side search) */
+    get isApexClass() {
         return this.metadataType === "Apex Class";
     }
 
-    /** Component picker for types that use a single combobox (not Apex search) */
-    get showComponentPickerNonApex() {
-        return this.metadataType !== "" && this.metadataType !== "Apex Class";
+    /** Column width: narrower when object picker is also shown */
+    get componentPickerColClass() {
+        return this.showObjectPicker
+            ? "slds-col slds-size_1-of-1 slds-medium-size_3-of-12"
+            : "slds-col slds-size_1-of-1 slds-medium-size_4-of-12";
+    }
+
+    get componentPlaceholder() {
+        if (this.isApexClass) {
+            return "Type to search...";
+        }
+        return "Search...";
     }
 
     get componentLabel() {
@@ -206,7 +214,6 @@ export default class MetadataPicker extends LightningElement {
         this.metadataType = event.detail.value;
         this.selectedObject = "";
         this.selectedComponent = "";
-        this.apexSearchTerm = "";
         this.componentOptions = [];
         this.updateSearchState();
 
@@ -257,15 +264,15 @@ export default class MetadataPicker extends LightningElement {
         this.updateSearchState();
     }
 
-    handleApexSearchChange(event) {
-        this.apexSearchTerm = event.target.value;
-        if (this._apexSearchTimeout !== null) {
-            window.clearTimeout(this._apexSearchTimeout);
+    handleComponentSearch(event) {
+        const term = event.detail.searchTerm;
+        if (this._searchTimeout !== null) {
+            window.clearTimeout(this._searchTimeout);
         }
-        this._apexSearchTimeout = window.setTimeout(() => {
-            this.loadApexClasses(this.apexSearchTerm);
-            this._apexSearchTimeout = null;
-        }, APEX_SEARCH_DEBOUNCE_MS);
+        this._searchTimeout = window.setTimeout(() => {
+            this.loadApexClasses(term);
+            this._searchTimeout = null;
+        }, SEARCH_DEBOUNCE_MS);
     }
 
     handleObjectFilterToggle(event) {
@@ -347,7 +354,7 @@ export default class MetadataPicker extends LightningElement {
 
     async loadApexClasses(searchTerm) {
         try {
-            const term = typeof searchTerm === "string" ? searchTerm : this.apexSearchTerm;
+            const term = typeof searchTerm === "string" ? searchTerm : "";
             const data = await searchApexClasses({ searchTerm: term || null });
             this.componentOptions = data.map((c) => ({ label: c.label, value: c.value }));
         } catch (error) {
