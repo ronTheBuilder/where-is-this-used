@@ -72,10 +72,14 @@ private with sharing class ToolingApiClientTest {
         ToolingApiClient.bypassAccessCheckForTests = true;
 
         ToolingApiClient.validateComponentName('Account.MyField__c');
+
+        // In NC mode, resolveEndpoint uses the named credential
+        ToolingApiClient.useNamedCredential = true;
         System.assertEquals(
             'callout:WITU_ToolingAPI/services/data/v66.0/tooling/query/01gNEXT',
             ToolingApiClient.resolveEndpoint('/services/data/v66.0/tooling/query/01gNEXT')
         );
+        ToolingApiClient.useNamedCredential = null;
 
         Map<String, Object> sourceMap = new Map<String, Object>{ 'k' => 'v' };
         List<Object> sourceList = new List<Object>{ 'x' };
@@ -83,6 +87,72 @@ private with sharing class ToolingApiClientTest {
         System.assertEquals(1, ToolingApiClient.asList(sourceList).size());
         System.assertEquals(null, ToolingApiClient.asMap(sourceList));
         System.assertEquals(null, ToolingApiClient.asList(sourceMap));
+    }
+
+    @IsTest
+    static void isNamedCredentialMode_defaultsFalse() {
+        ToolingApiClient.bypassAccessCheckForTests = true;
+        ToolingApiClient.useNamedCredential = null;
+
+        Test.startTest();
+        Boolean result = ToolingApiClient.isNamedCredentialMode();
+        Test.stopTest();
+
+        System.assertEquals(false, result);
+    }
+
+    @IsTest
+    static void isNamedCredentialMode_trueWhenSettingSet() {
+        ToolingApiClient.bypassAccessCheckForTests = true;
+        ToolingApiClient.useNamedCredential = null;
+        WITU_Settings__c settings = WITU_Settings__c.getOrgDefaults();
+        settings.Use_Named_Credential__c = true;
+        upsert settings;
+
+        Test.startTest();
+        Boolean result = ToolingApiClient.isNamedCredentialMode();
+        Test.stopTest();
+
+        System.assertEquals(true, result);
+    }
+
+    @IsTest
+    static void resolveEndpoint_sessionModeUsesOrgDomain() {
+        ToolingApiClient.bypassAccessCheckForTests = true;
+        ToolingApiClient.useNamedCredential = false;
+
+        Test.startTest();
+        String endpoint = ToolingApiClient.resolveEndpoint('/services/data/v66.0/tooling/query');
+        Test.stopTest();
+
+        String orgDomain = URL.getOrgDomainUrl().toExternalForm();
+        System.assertEquals(orgDomain + '/services/data/v66.0/tooling/query', endpoint);
+    }
+
+    @IsTest
+    static void resolveEndpoint_ncModeUsesNamedCredential() {
+        ToolingApiClient.bypassAccessCheckForTests = true;
+        ToolingApiClient.useNamedCredential = true;
+
+        Test.startTest();
+        String endpoint = ToolingApiClient.resolveEndpoint('/services/data/v66.0/tooling/query');
+        Test.stopTest();
+
+        System.assertEquals('callout:WITU_ToolingAPI/services/data/v66.0/tooling/query', endpoint);
+    }
+
+    @IsTest
+    static void sendGet_sessionModeSetsAuthHeader() {
+        ToolingApiClient.bypassAccessCheckForTests = true;
+        ToolingApiClient.useNamedCredential = false;
+        AuthHeaderCheckMock mock = new AuthHeaderCheckMock();
+        Test.setMock(HttpCalloutMock.class, mock);
+
+        Test.startTest();
+        ToolingApiClient.sendGet('/services/data/v66.0/tooling/query/?q=SELECT+Id+FROM+Organization');
+        Test.stopTest();
+
+        System.assertEquals(true, mock.hadAuthHeader);
     }
 
     @IsTest
@@ -288,6 +358,19 @@ private with sharing class ToolingApiClientTest {
                 '{"MetadataComponentId":"01pA","MetadataComponentName":"ClassA","MetadataComponentType":"ApexClass","RefMetadataComponentName":"Account.MyField__c"},' +
                 '{"MetadataComponentId":"01pB","MetadataComponentName":"ClassB","MetadataComponentType":"ApexClass","RefMetadataComponentName":"Account.Other__c"}' +
             ']}');
+            return response;
+        }
+    }
+
+    private class AuthHeaderCheckMock implements HttpCalloutMock {
+        public Boolean hadAuthHeader = false;
+
+        public HttpResponse respond(HttpRequest req) {
+            hadAuthHeader = req.getHeader('Authorization') != null;
+            HttpResponse response = new HttpResponse();
+            response.setStatusCode(200);
+            response.setHeader('Content-Type', 'application/json');
+            response.setBody('{"done":true,"totalSize":1,"records":[{"Id":"00D"}]}');
             return response;
         }
     }

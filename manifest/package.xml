@@ -23,12 +23,15 @@
         <members>ProcessFlowServiceTest</members>
         <members>SetupUrlResolver</members>
         <members>SetupUrlResolverTest</members>
+        <members>SetupController</members>
+        <members>SetupControllerTest</members>
         <members>ToolingApiClient</members>
         <members>ToolingApiClientTest</members>
         <name>ApexClass</name>
     </types>
     <types>
         <members>blastRadiusGraph</members>
+        <members>d3Loader</members>
         <members>dataJourneyView</members>
         <members>dependencyFinder</members>
         <members>dependencyResults</members>
@@ -37,7 +40,12 @@
         <members>metadataPicker</members>
         <members>processFlowMap</members>
         <members>setupWizard</members>
+        <members>wituConstants</members>
         <name>LightningComponentBundle</name>
+    </types>
+    <types>
+        <members>d3</members>
+        <name>StaticResource</name>
     </types>
     <types>
         <members>Where_Is_This_Used</members>
@@ -59,6 +67,10 @@
     <types>
         <members>Where_Is_This_Used</members>
         <name>CustomApplication</name>
+    </types>
+    <types>
+        <members>WITU_Settings__c</members>
+        <name>CustomObject</name>
     </types>
     <version>66.0</version>
 </Package>

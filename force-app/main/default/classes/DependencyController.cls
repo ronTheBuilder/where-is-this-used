@@ -34,9 +34,12 @@ public with sharing class DependencyController {
 
             throw ahe;
         } catch (Exception ex) {
-            AuraHandledException ahe = new AuraHandledException('Unable to validate the Named Credential connection: ' + ex.getMessage());
+            String prefix = ToolingApiClient.isNamedCredentialMode()
+                ? 'Unable to validate the Named Credential connection: '
+                : 'Unable to validate the Tooling API connection: ';
+            AuraHandledException ahe = new AuraHandledException(prefix + ex.getMessage());
 
-            ahe.setMessage('Unable to validate the Named Credential connection: ' + ex.getMessage());
+            ahe.setMessage(prefix + ex.getMessage());
 
             throw ahe;
         }

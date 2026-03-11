@@ -11,6 +11,16 @@ public with sharing class ToolingApiClient {
     @TestVisible
     private static Boolean bypassAccessCheckForTests = false;
 
+    @TestVisible
+    private static Boolean useNamedCredential;
+
+    public static Boolean isNamedCredentialMode() {
+        if (useNamedCredential != null) return useNamedCredential;
+        WITU_Settings__c settings = WITU_Settings__c.getInstance();
+        useNamedCredential = settings != null && settings.Use_Named_Credential__c == true;
+        return useNamedCredential;
+    }
+
     public class ToolingApiClientException extends Exception {}
 
     public class ToolingQueryResponse {
@@ -107,6 +117,9 @@ public with sharing class ToolingApiClient {
             request.setMethod('GET');
             request.setTimeout(HTTP_TIMEOUT_MS);
             request.setEndpoint(resolveEndpoint(path));
+            if (!isNamedCredentialMode()) {
+                request.setHeader('Authorization', 'Bearer ' + System.UserInfo.getSessionId());
+            }
 
             response = new Http().send(request);
             Integer status = response.getStatusCode();
@@ -135,10 +148,11 @@ public with sharing class ToolingApiClient {
         if (path.startsWith('callout:')) {
             return path;
         }
-        if (path.startsWith('/')) {
-            return NAMED_CREDENTIAL + path;
+        String basePath = path.startsWith('/') ? path : '/' + path;
+        if (isNamedCredentialMode()) {
+            return NAMED_CREDENTIAL + basePath;
         }
-        return NAMED_CREDENTIAL + '/' + path;
+        return URL.getOrgDomainUrl().toExternalForm() + basePath;
     }
 
     public static void checkCalloutBudget() {
@@ -165,7 +179,10 @@ public with sharing class ToolingApiClient {
             return 'Tooling API request was invalid (HTTP 400). Check Setup > Debug Logs for details.';
         }
         if (status == 401 || status == 403) {
-            return 'Authentication failed. Please verify your Named Credential (WITU_ToolingAPI) is configured correctly.';
+            if (isNamedCredentialMode()) {
+                return 'Authentication failed. Verify your Named Credential (WITU_ToolingAPI) is configured correctly.';
+            }
+            return 'Authentication failed. Refresh the page and try again. If the issue persists, check that your user has API access enabled.';
         }
         if (status == 404) {
             return 'Tooling API endpoint not found. Please verify your org\'s API version supports this feature.';

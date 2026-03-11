@@ -1,47 +1,404 @@
 <template>
-    <div class="slds-setup-assistant">
-        <div class="slds-box slds-box_x-small slds-theme_info slds-m-bottom_medium">
-            <p class="slds-text-body_small">
-                <strong>One-time setup required.</strong> Where Is This Used? needs an External Client App, External Credential, and Named Credential to securely call the Tooling API within your org. Follow the 6 steps below — this only takes a few minutes.
-            </p>
-        </div>
-
-        <lightning-accordion allow-multiple-sections-open active-section-name="step-6">
-            <template for:each={steps} for:item="step">
-                <lightning-accordion-section key={step.number} name={step.sectionName} label={step.title}>
-                    <div class="slds-p-horizontal_medium slds-p-bottom_medium">
-                        <p class="slds-text-body_regular slds-text-color_weak slds-m-bottom_small">
-                            {step.description}
-                        </p>
-
-                        <!-- Test connection button for step 4 -->
-                        <template if:true={step.isTestStep}>
-                            <div class="slds-m-top_medium">
-                                <lightning-button
-                                    label={testButtonLabel}
-                                    variant={testButtonVariant}
-                                    onclick={handleTestConnection}
-                                    disabled={isTesting}>
-                                </lightning-button>
-
-                                <template if:true={isConnected}>
-                                    <div class="slds-text-color_success slds-m-top_small">
-                                        <lightning-icon icon-name="utility:success" size="x-small" variant="success" class="slds-m-right_xx-small"></lightning-icon>
-                                        Connection successful! The Tooling API is accessible.
-                                    </div>
+    <div class="wizard-container">
+        <div class="wizard-layout">
+            <!-- Vertical Navigation -->
+            <nav class="slds-nav-vertical wizard-nav">
+                <div class="slds-nav-vertical__section">
+                    <ul>
+                        <li class={modeNavClass}>
+                            <a class="slds-nav-vertical__action" data-section="mode" onclick={handleNavClick}>
+                                <lightning-icon icon-name="utility:plug" size="x-small" class="nav-icon"></lightning-icon>
+                                <span class="slds-var-m-left_small">Connection Mode</span>
+                                <template if:true={isModeComplete}>
+                                    <lightning-icon icon-name="utility:check" size="xx-small" variant="success" class="slds-var-m-left_small nav-check" alternative-text="Complete"></lightning-icon>
                                 </template>
-
-                                <template if:true={isConnectionError}>
-                                    <div class="slds-text-color_error slds-m-top_small">
-                                        <lightning-icon icon-name="utility:error" size="x-small" variant="error" class="slds-m-right_xx-small"></lightning-icon>
-                                        {connectionError}
-                                    </div>
+                            </a>
+                        </li>
+                        <template if:true={isSessionMode}>
+                            <li class={sessionNavClass}>
+                                <a class="slds-nav-vertical__action" data-section="session" onclick={handleNavClick}>
+                                    <lightning-icon icon-name="utility:lock" size="x-small" class="nav-icon"></lightning-icon>
+                                    <span class="slds-var-m-left_small">Session Setup</span>
+                                    <template if:true={isSessionSetupComplete}>
+                                        <lightning-icon icon-name="utility:check" size="xx-small" variant="success" class="slds-var-m-left_small nav-check" alternative-text="Complete"></lightning-icon>
+                                    </template>
+                                </a>
+                            </li>
+                        </template>
+                        <template if:false={isSessionMode}>
+                            <li class={ncNavClass}>
+                                <a class="slds-nav-vertical__action" data-section="namedCredential" onclick={handleNavClick}>
+                                    <lightning-icon icon-name="utility:key" size="x-small" class="nav-icon"></lightning-icon>
+                                    <span class="slds-var-m-left_small">Named Credential</span>
+                                </a>
+                            </li>
+                        </template>
+                        <li class={permNavClass}>
+                            <a class="slds-nav-vertical__action" data-section="permissions" onclick={handleNavClick}>
+                                <lightning-icon icon-name="utility:people" size="x-small" class="nav-icon"></lightning-icon>
+                                <span class="slds-var-m-left_small">Permissions</span>
+                            </a>
+                        </li>
+                        <li class={testNavClass}>
+                            <a class="slds-nav-vertical__action" data-section="test" onclick={handleNavClick}>
+                                <lightning-icon icon-name="utility:check" size="x-small" class="nav-icon"></lightning-icon>
+                                <span class="slds-var-m-left_small">Test Connection</span>
+                                <template if:true={isTestComplete}>
+                                    <lightning-icon icon-name="utility:check" size="xx-small" variant="success" class="slds-var-m-left_small nav-check" alternative-text="Complete"></lightning-icon>
                                 </template>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Content Panel -->
+            <div class="wizard-content">
+                <!-- Connection Mode Section -->
+                <template if:true={isModeSection}>
+                    <h2 class="slds-text-heading_medium slds-var-m-bottom_medium">Connection Mode</h2>
+                    <p class="slds-text-body_regular slds-text-color_weak slds-var-m-bottom_medium">
+                        Choose how WITU connects to the Tooling API. You can change this at any time.
+                    </p>
+                    <div class="mode-cards">
+                        <div class={sessionCardClass} data-mode="session" onclick={handleModeSelect}>
+                            <div class="mode-card-header">
+                                <lightning-icon icon-name="utility:lock" size="small"></lightning-icon>
+                                <div class="mode-card-title">
+                                    <h3 class="slds-text-heading_small">Session Auth</h3>
+                                    <span class="slds-badge slds-theme_success slds-var-m-left_x-small">Recommended</span>
+                                </div>
+                            </div>
+                            <p class="slds-text-body_regular slds-var-m-top_small">
+                                Works immediately, no setup needed. Best for interactive use. Uses your current browser session to authenticate API calls.
+                            </p>
+                            <p class="slds-text-body_small slds-text-color_weak slds-var-m-top_x-small">
+                                Requires a Remote Site Setting for your org domain.
+                            </p>
+                        </div>
+                        <div class={ncCardClass} data-mode="namedCredential" onclick={handleModeSelect}>
+                            <div class="mode-card-header">
+                                <lightning-icon icon-name="utility:key" size="small"></lightning-icon>
+                                <div class="mode-card-title">
+                                    <h3 class="slds-text-heading_small">Named Credential</h3>
+                                </div>
+                            </div>
+                            <p class="slds-text-body_regular slds-var-m-top_small">
+                                For async features (scheduled jobs, queueable). Requires Auth Provider setup.
+                            </p>
+                            <p class="slds-text-body_small slds-text-color_weak slds-var-m-top_x-small">
+                                3 manual steps: Auth Provider, link External Credential, authenticate.
+                            </p>
+                        </div>
+                    </div>
+                    <template if:true={modeSaving}>
+                        <div class="slds-var-m-top_small">
+                            <lightning-spinner alternative-text="Saving" size="small"></lightning-spinner>
+                        </div>
+                    </template>
+                    <template if:true={modeError}>
+                        <div class="slds-text-color_error slds-var-m-top_small">{modeError}</div>
+                    </template>
+                </template>
+
+                <!-- Session Setup Section -->
+                <template if:true={isSessionSection}>
+                    <h2 class="slds-text-heading_medium slds-var-m-bottom_medium">Session Setup</h2>
+                    <p class="slds-text-body_regular slds-text-color_weak slds-var-m-bottom_medium">
+                        Session auth requires a Remote Site Setting so your org can call its own Tooling API.
+                    </p>
+
+                    <div class="slds-box slds-var-m-bottom_medium">
+                        <h3 class="slds-text-heading_small slds-var-m-bottom_small">Add Remote Site Setting</h3>
+                        <ol class="slds-list_ordered slds-var-m-bottom_small">
+                            <li class="slds-var-m-bottom_xx-small">Go to <strong>Setup &rarr; Security &rarr; Remote Site Settings</strong></li>
+                            <li class="slds-var-m-bottom_xx-small">Click <strong>New Remote Site</strong></li>
+                            <li class="slds-var-m-bottom_xx-small">Remote Site Name: <code>WITU_OrgDomain</code></li>
+                            <li class="slds-var-m-bottom_xx-small">
+                                Remote Site URL: <code class="domain-url">{orgDomainUrl}</code>
+                                <template if:true={orgDomainUrl}>
+                                    <lightning-button-icon
+                                        icon-name="utility:copy"
+                                        alternative-text="Copy URL"
+                                        title="Copy URL"
+                                        size="small"
+                                        class="slds-var-m-left_xx-small"
+                                        onclick={handleCopyDomain}>
+                                    </lightning-button-icon>
+                                </template>
+                            </li>
+                            <li>Click <strong>Save</strong></li>
+                        </ol>
+                    </div>
+
+                    <div class="slds-var-m-top_medium">
+                        <lightning-button
+                            label="Verify Remote Site Setting"
+                            variant="brand"
+                            onclick={handleTestSession}
+                            disabled={isTestingSession}>
+                        </lightning-button>
+                        <template if:true={isTestingSession}>
+                            <lightning-spinner alternative-text="Testing" size="small" class="slds-var-m-left_small"></lightning-spinner>
+                        </template>
+                        <template if:true={isSessionSetupComplete}>
+                            <span class="slds-text-color_success slds-var-m-left_small">
+                                <lightning-icon icon-name="utility:success" size="x-small" variant="success" alternative-text="Success"></lightning-icon>
+                                Remote Site Setting verified!
+                            </span>
+                        </template>
+                        <template if:true={sessionSetupError}>
+                            <div class="slds-text-color_error slds-var-m-top_small">
+                                <lightning-icon icon-name="utility:error" size="x-small" variant="error" alternative-text="Error"></lightning-icon>
+                                {sessionSetupError}
                             </div>
                         </template>
                     </div>
-                </lightning-accordion-section>
-            </template>
-        </lightning-accordion>
+                </template>
+
+                <!-- Named Credential Section -->
+                <template if:true={isNcSection}>
+                    <h2 class="slds-text-heading_medium slds-var-m-bottom_medium">Named Credential Setup</h2>
+                    <p class="slds-text-body_regular slds-text-color_weak slds-var-m-bottom_medium">
+                        Create the Auth Provider manually in Setup, then click the button below to automatically create the External Credential and Named Credential.
+                    </p>
+
+                    <lightning-accordion allow-multiple-sections-open active-section-name={ncActiveSections}>
+                        <lightning-accordion-section name="nc-step-1" label="Step 1: Create External Client App (manual)">
+                            <div class="slds-var-p-horizontal_medium slds-var-p-bottom_medium">
+                                <ol class="slds-list_ordered">
+                                    <li class="slds-var-m-bottom_xx-small">Go to <strong>Setup &rarr; Apps &rarr; External Client App Manager &rarr; New External Client App</strong></li>
+                                    <li class="slds-var-m-bottom_xx-small">Fill in a name (e.g. <code>WITU Tooling</code>)</li>
+                                    <li class="slds-var-m-bottom_xx-small">Enable OAuth with scopes: <strong>Manage user data via APIs (api)</strong> and <strong>Perform requests at any time (refresh_token, offline_access)</strong></li>
+                                    <li class="slds-var-m-bottom_xx-small">Use a placeholder Callback URL for now (e.g. <code>https://login.salesforce.com</code>)</li>
+                                    <li>Copy the <strong>Consumer Key</strong> and <strong>Consumer Secret</strong> from the Settings tab &mdash; you'll need them in Step 2</li>
+                                </ol>
+                            </div>
+                        </lightning-accordion-section>
+
+                        <lightning-accordion-section name="nc-step-2" label="Step 2: Create Auth Provider (manual)">
+                            <div class="slds-var-p-horizontal_medium slds-var-p-bottom_medium">
+                                <ol class="slds-list_ordered">
+                                    <li class="slds-var-m-bottom_xx-small">Go to <strong>Setup &rarr; Identity &rarr; Auth. Providers &rarr; New</strong></li>
+                                    <li class="slds-var-m-bottom_xx-small">Provider Type: <strong>Salesforce</strong></li>
+                                    <li class="slds-var-m-bottom_xx-small">Name: <code>WITU_Auth</code> (or any name you prefer)</li>
+                                    <li class="slds-var-m-bottom_xx-small">Consumer Key and Consumer Secret: paste from Step 1</li>
+                                    <li class="slds-var-m-bottom_xx-small">Default Scopes: <code>full refresh_token</code></li>
+                                    <li class="slds-var-m-bottom_xx-small">Click <strong>Save</strong></li>
+                                    <li>Copy the <strong>Callback URL</strong> from the Salesforce Configuration section and update your External Client App with it</li>
+                                </ol>
+                                <p class="slds-text-body_small slds-text-color_weak slds-var-m-top_small">
+                                    Note the <strong>URL Suffix</strong> (developer name) of the Auth Provider &mdash; you'll enter it below.
+                                </p>
+                            </div>
+                        </lightning-accordion-section>
+
+                        <lightning-accordion-section name="nc-step-3" label="Step 3: Create Named Credential (automatic)">
+                            <div class="slds-var-p-horizontal_medium slds-var-p-bottom_medium">
+                                <p class="slds-var-m-bottom_small">Enter the developer name (URL Suffix) of the Auth Provider you created above, then click <strong>Create</strong> to automatically set up the External Credential and Named Credential.</p>
+
+                                <div class="slds-grid slds-gutters slds-grid_vertical-align-end">
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <lightning-input
+                                            label="Auth Provider Developer Name"
+                                            placeholder="e.g. WITU_Auth"
+                                            value={authProviderName}
+                                            onchange={handleAuthProviderNameChange}
+                                            required>
+                                        </lightning-input>
+                                    </div>
+                                    <div class="slds-col">
+                                        <lightning-button
+                                            label={ncCreateButtonLabel}
+                                            variant="brand"
+                                            onclick={handleCreateNamedCredential}
+                                            disabled={ncCreateDisabled}>
+                                        </lightning-button>
+                                    </div>
+                                </div>
+
+                                <template if:true={ncCreateSuccess}>
+                                    <div class="slds-text-color_success slds-var-m-top_small">
+                                        <lightning-icon icon-name="utility:success" size="x-small" variant="success" alternative-text="Success"></lightning-icon>
+                                        {ncCreateSuccessMessage}
+                                    </div>
+                                </template>
+                                <template if:true={ncCreateError}>
+                                    <div class="slds-text-color_error slds-var-m-top_small">
+                                        <lightning-icon icon-name="utility:error" size="x-small" variant="error" alternative-text="Error"></lightning-icon>
+                                        {ncCreateError}
+                                    </div>
+                                </template>
+                            </div>
+                        </lightning-accordion-section>
+
+                        <lightning-accordion-section name="nc-step-4" label="Step 4: Authenticate (manual)">
+                            <div class="slds-var-p-horizontal_medium slds-var-p-bottom_medium">
+                                <ol class="slds-list_ordered">
+                                    <li class="slds-var-m-bottom_xx-small">Go to <strong>Setup &rarr; Security &rarr; Named Credentials &rarr; External Credentials tab</strong></li>
+                                    <li class="slds-var-m-bottom_xx-small">Click <strong>WITU Tooling Credential</strong></li>
+                                    <li class="slds-var-m-bottom_xx-small">Under the Principal section, click the action dropdown on the Named Principal row</li>
+                                    <li class="slds-var-m-bottom_xx-small">Click <strong>Authenticate</strong></li>
+                                    <li>Log in with your admin credentials when prompted</li>
+                                </ol>
+                            </div>
+                        </lightning-accordion-section>
+                    </lightning-accordion>
+                </template>
+
+                <!-- Permissions Section -->
+                <template if:true={isPermSection}>
+                    <h2 class="slds-text-heading_medium slds-var-m-bottom_medium">Permission Set Assignment</h2>
+                    <p class="slds-text-body_regular slds-text-color_weak slds-var-m-bottom_medium">
+                        Assign the WITU permission sets to users who need access.
+                    </p>
+
+                    <div class="slds-grid slds-gutters slds-var-m-bottom_medium">
+                        <div class="slds-col slds-size_1-of-2">
+                            <lightning-input
+                                type="search"
+                                label="Search Users"
+                                placeholder="Name, username, or email..."
+                                value={userSearchTerm}
+                                onchange={handleUserSearch}>
+                            </lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_1-of-2">
+                            <lightning-combobox
+                                label="Permission Set"
+                                value={selectedPermSet}
+                                options={permSetOptions}
+                                onchange={handlePermSetChange}>
+                            </lightning-combobox>
+                        </div>
+                    </div>
+
+                    <template if:true={isSearchingUsers}>
+                        <lightning-spinner alternative-text="Searching" size="small"></lightning-spinner>
+                    </template>
+
+                    <template if:true={hasUserResults}>
+                        <div class="slds-var-m-bottom_medium">
+                            <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped">
+                                <thead>
+                                    <tr class="slds-line-height_reset">
+                                        <th scope="col" class="slds-cell-shrink">
+                                            <lightning-input type="checkbox" data-id="select-all" checked={allUsersSelected} onchange={handleSelectAll}></lightning-input>
+                                        </th>
+                                        <th scope="col">Name</th>
+                                        <th scope="col">Username</th>
+                                        <th scope="col">Email</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template for:each={userResults} for:item="user">
+                                        <tr key={user.id}>
+                                            <td class="slds-cell-shrink">
+                                                <lightning-input type="checkbox" data-id={user.id} checked={user.selected} onchange={handleUserSelect}></lightning-input>
+                                            </td>
+                                            <td>{user.name}</td>
+                                            <td>{user.username}</td>
+                                            <td>{user.email}</td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <lightning-button
+                            label="Assign Permission Set"
+                            variant="brand"
+                            onclick={handleAssign}
+                            disabled={assignDisabled}>
+                        </lightning-button>
+                        <template if:true={isAssigning}>
+                            <lightning-spinner alternative-text="Assigning" size="small" class="slds-var-m-left_small"></lightning-spinner>
+                        </template>
+                    </template>
+
+                    <template if:true={assignSuccess}>
+                        <div class="slds-text-color_success slds-var-m-top_small">
+                            <lightning-icon icon-name="utility:success" size="x-small" variant="success" alternative-text="Success"></lightning-icon>
+                            Permission set assigned successfully.
+                        </div>
+                    </template>
+                    <template if:true={assignError}>
+                        <div class="slds-text-color_error slds-var-m-top_small">{assignError}</div>
+                    </template>
+
+                    <!-- Current Assignments -->
+                    <h3 class="slds-text-heading_small slds-var-m-top_large slds-var-m-bottom_small">Current Assignments</h3>
+                    <template if:true={isLoadingAssignments}>
+                        <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+                    </template>
+                    <template if:true={hasAssignments}>
+                        <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped">
+                            <thead>
+                                <tr class="slds-line-height_reset">
+                                    <th scope="col">User</th>
+                                    <th scope="col">Username</th>
+                                    <th scope="col">Permission Set</th>
+                                    <th scope="col" class="slds-cell-shrink">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template for:each={assignments} for:item="assignment">
+                                    <tr key={assignment.id}>
+                                        <td>{assignment.userName}</td>
+                                        <td>{assignment.userUsername}</td>
+                                        <td>{assignment.permissionSetLabel}</td>
+                                        <td class="slds-cell-shrink">
+                                            <lightning-button-icon
+                                                icon-name="utility:delete"
+                                                alternative-text="Remove"
+                                                title="Remove assignment"
+                                                variant="bare"
+                                                data-id={assignment.id}
+                                                onclick={handleRemoveAssignment}>
+                                            </lightning-button-icon>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </template>
+                    <template if:false={hasAssignments}>
+                        <template if:false={isLoadingAssignments}>
+                            <p class="slds-text-body_regular slds-text-color_weak">No WITU permission set assignments found.</p>
+                        </template>
+                    </template>
+                </template>
+
+                <!-- Test Connection Section -->
+                <template if:true={isTestSection}>
+                    <h2 class="slds-text-heading_medium slds-var-m-bottom_medium">Test Connection</h2>
+                    <p class="slds-text-body_regular slds-text-color_weak slds-var-m-bottom_medium">
+                        Verify that WITU can reach the Tooling API using your current auth mode
+                        (<strong>{currentAuthModeLabel}</strong>).
+                    </p>
+
+                    <lightning-button
+                        label={testButtonLabel}
+                        variant={testButtonVariant}
+                        onclick={handleTestConnection}
+                        disabled={isTesting}>
+                    </lightning-button>
+
+                    <template if:true={isConnected}>
+                        <div class="slds-text-color_success slds-var-m-top_small">
+                            <lightning-icon icon-name="utility:success" size="x-small" variant="success" class="slds-var-m-right_xx-small" alternative-text="Success" title="Success"></lightning-icon>
+                            Connection successful! The Tooling API is accessible.
+                        </div>
+                    </template>
+
+                    <template if:true={isConnectionError}>
+                        <div class="slds-text-color_error slds-var-m-top_small">
+                            <lightning-icon icon-name="utility:error" size="x-small" variant="error" class="slds-var-m-right_xx-small" alternative-text="Error" title="Error"></lightning-icon>
+                            {connectionError}
+                        </div>
+                    </template>
+                </template>
+            </div>
+        </div>
     </div>
 </template>
