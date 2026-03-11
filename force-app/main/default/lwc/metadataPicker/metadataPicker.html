@@ -71,4 +71,53 @@
             </lightning-button>
         </div>
     </div>
+
+    <!-- Recent searches -->
+    <template if:true={hasRecentSearches}>
+        <div class="slds-m-bottom_small">
+            <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_xx-small">
+                <span class="slds-text-title_caps slds-grow">Recent Searches</span>
+                <lightning-button-icon
+                    icon-name="utility:delete"
+                    alternative-text="Clear recent"
+                    size="small"
+                    onclick={handleClearRecent}>
+                </lightning-button-icon>
+            </div>
+            <lightning-pill-container>
+                <template for:each={recentSearches} for:item="recent">
+                    <lightning-pill
+                        key={recent.key}
+                        label={recent.label}
+                        data-key={recent.key}
+                        onclick={handleRecentSearchClick}>
+                    </lightning-pill>
+                </template>
+            </lightning-pill-container>
+        </div>
+    </template>
+
+    <!-- Filter toggles -->
+    <template if:true={showObjectFilter}>
+        <div class="slds-m-bottom_small">
+            <lightning-input
+                type="checkbox"
+                label={objectFilterLabel}
+                checked={hideNoiseObjects}
+                onchange={handleObjectFilterToggle}
+                variant="label-inline">
+            </lightning-input>
+        </div>
+    </template>
+    <template if:true={showFlowFilter}>
+        <div class="slds-m-bottom_small">
+            <lightning-input
+                type="checkbox"
+                label={flowFilterLabel}
+                checked={activeFlowsOnly}
+                onchange={handleFlowFilterToggle}
+                variant="label-inline">
+            </lightning-input>
+        </div>
+    </template>
 </template>

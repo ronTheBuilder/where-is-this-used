@@ -8,17 +8,17 @@
         <div class="slds-tabs_default">
             <ul class="slds-tabs_default__nav" role="tablist">
                 <li class={finderTabClass} role="presentation">
-                    <a role="tab" tabindex="0" data-tab="finder" onclick={handleTabClick}>
+                    <a role="tab" tabindex="0" aria-selected={finderTabSelected} data-tab="finder" onclick={handleTabClick}>
                         Dependency Finder
                     </a>
                 </li>
                 <li class={setupTabClass} role="presentation">
-                    <a role="tab" tabindex="0" data-tab="setup" onclick={handleTabClick}>
+                    <a role="tab" tabindex="0" aria-selected={setupTabSelected} data-tab="setup" onclick={handleTabClick}>
                         Setup
                     </a>
                 </li>
                 <li class={blastRadiusTabClass} role="presentation">
-                    <a role="tab" tabindex="0" data-tab="blastRadius" onclick={handleTabClick}>
+                    <a role="tab" tabindex="0" aria-selected={blastRadiusTabSelected} data-tab="blastRadius" onclick={handleTabClick}>
                         Blast Radius
                     </a>
                 </li>

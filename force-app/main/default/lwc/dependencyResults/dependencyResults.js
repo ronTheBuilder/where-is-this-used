@@ -24,6 +24,7 @@ export default class DependencyResults extends LightningElement {
     @api searchResponse;
     @track activeFilter = 'all';
     @track expandedGroups = {};
+    @track searchText = '';
 
     get componentName() {
         return this.searchResponse?.componentName || '';
@@ -62,24 +63,44 @@ export default class DependencyResults extends LightningElement {
         return [all, ...typeBadges];
     }
 
+    get filteredResultCount() {
+        return this.filteredGroups.reduce((sum, g) => sum + g.records.length, 0);
+    }
+
+    get hasSearchFilter() {
+        return this.searchText.length > 0;
+    }
+
     get filteredGroups() {
         const groups = this.searchResponse?.groups || [];
+        const needle = this.searchText.toLowerCase();
         return groups
             .filter(g => this.activeFilter === 'all' || g.componentType === this.activeFilter)
-            .map(g => ({
-                ...g,
-                isExpanded: this.expandedGroups[g.componentType] !== false,
-                chevronIcon: this.expandedGroups[g.componentType] !== false ? 'utility:chevrondown' : 'utility:chevronright',
-                iconName: TYPE_ICONS[g.componentType] || 'standard:default',
-                records: g.records.map(r => ({
-                    ...r,
-                    key: r.metadataComponentId + '_' + r.metadataComponentName,
-                    badgeLabel: r.accessType || (r.isSubflowReference ? 'Subflow' : ''),
-                    badgeVariant: BADGE_VARIANTS[r.accessType] || 'inverse',
-                    hasBadge: !!(r.accessType || r.isSubflowReference),
-                    hasSetupUrl: !!r.setupUrl
-                }))
-            }));
+            .map(g => {
+                const records = g.records
+                    .filter(r => !needle || (r.metadataComponentName && r.metadataComponentName.toLowerCase().includes(needle)))
+                    .map(r => ({
+                        ...r,
+                        key: r.metadataComponentId + '_' + r.metadataComponentName,
+                        badgeLabel: r.accessType || (r.isSubflowReference ? 'Subflow' : ''),
+                        badgeVariant: BADGE_VARIANTS[r.accessType] || 'inverse',
+                        hasBadge: !!(r.accessType || r.isSubflowReference),
+                        hasSetupUrl: !!r.setupUrl
+                    }));
+                return {
+                    ...g,
+                    count: records.length,
+                    isExpanded: this.expandedGroups[g.componentType] !== false,
+                    chevronIcon: this.expandedGroups[g.componentType] !== false ? 'utility:chevrondown' : 'utility:chevronright',
+                    iconName: TYPE_ICONS[g.componentType] || 'standard:default',
+                    records
+                };
+            })
+            .filter(g => g.records.length > 0);
+    }
+
+    handleSearchInput(event) {
+        this.searchText = event.target.value || '';
     }
 
     handleFilterClick(event) {

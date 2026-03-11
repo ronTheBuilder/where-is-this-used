@@ -1,5 +1,5 @@
 <template>
-    <div class="blast-radius-root">
+    <section class="blast-radius-root">
         <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-bottom_small">
             <div class="slds-grid slds-grid_vertical-align-center">
                 <lightning-button-icon
@@ -11,6 +11,7 @@
                 </lightning-button-icon>
                 <h2 class="slds-text-heading_small">Blast Radius: {componentName}</h2>
             </div>
+            <span class="direction-hint">Direction: arrows point to components that use the upstream node.</span>
         </div>
 
         <div class="slds-grid slds-wrap slds-grid_align-spread slds-m-bottom_small controls-bar">
@@ -31,6 +32,33 @@
                     <lightning-menu-item value="mermaid" label="Copy as Mermaid"></lightning-menu-item>
                     <lightning-menu-item value="svg" label="Download SVG"></lightning-menu-item>
                 </lightning-button-menu>
+            </div>
+        </div>
+
+        <div class="slds-grid slds-wrap slds-gutters_x-small controls-grid slds-m-bottom_small">
+            <div class="slds-col slds-size_1-of-1 slds-large-size_5-of-12">
+                <lightning-input
+                    type="search"
+                    label="Search in graph"
+                    placeholder="Find component by name"
+                    value={searchQuery}
+                    oninput={handleSearchInput}>
+                </lightning-input>
+            </div>
+            <div class="slds-col slds-size_1-of-1 slds-large-size_7-of-12">
+                <div class="type-filters" role="group" aria-label="Filter by type">
+                    <template for:each={typeFilterOptions} for:item="item">
+                        <lightning-input
+                            key={item.type}
+                            type="checkbox"
+                            checked={item.checked}
+                            label={item.label}
+                            data-type={item.type}
+                            onchange={handleTypeFilterChange}
+                            class="type-checkbox">
+                        </lightning-input>
+                    </template>
+                </div>
             </div>
         </div>
 
@@ -55,23 +83,57 @@
         </template>
 
         <template if:true={showEmptyState}>
-            <div class="slds-box slds-theme_default slds-text-color_weak">
-                No dependencies were found for this component at depth {maxDepth}.
+            <div class="empty-state slds-box slds-theme_default">
+                <lightning-icon icon-name="utility:search" size="medium" alternative-text="No dependencies"></lightning-icon>
+                <h3 class="slds-text-heading_small slds-m-top_x-small">No dependencies found</h3>
+                <p class="slds-text-body_small slds-text-color_weak">
+                    We couldn't find components that reference this item at depth {maxDepth}. Try a deeper search or re-root the graph from a related component.
+                </p>
             </div>
         </template>
 
         <template if:true={hasData}>
+            <div class="stats-grid slds-m-bottom_small">
+                <article class="metric-card">
+                    <span class="metric-label">Nodes</span>
+                    <span class="metric-value">{statNodes}</span>
+                </article>
+                <article class="metric-card">
+                    <span class="metric-label">Edges</span>
+                    <span class="metric-value">{statEdges}</span>
+                </article>
+                <article class="metric-card">
+                    <span class="metric-label">Max Depth</span>
+                    <span class="metric-value">{statDepth}</span>
+                </article>
+                <article class="metric-card">
+                    <span class="metric-label">Cycles</span>
+                    <span class="metric-value">{statCycles}</span>
+                </article>
+            </div>
+
+            <div class="legend slds-m-bottom_small" role="list" aria-label="Graph legend">
+                <template for:each={legendItems} for:item="item">
+                    <span key={item.label} class="legend-pill" role="listitem">
+                        <span class="legend-pill-icon" style={item.style}>{item.icon}</span>
+                        {item.label}
+                    </span>
+                </template>
+            </div>
+
             <div class="graph-viewport slds-box slds-m-bottom_small">
-                <svg class="graph-svg" preserveAspectRatio="xMinYMin meet">
+                <svg class="graph-svg" preserveAspectRatio="xMinYMin meet" aria-label="Blast radius graph">
                     <g class="graph-content"></g>
                 </svg>
             </div>
 
-            <div class="slds-box slds-m-bottom_small">
+            <section class="detail-panel slds-box slds-theme_default slds-m-bottom_small">
                 <template if:true={selectedNode}>
                     <h3 class="slds-text-title_bold slds-m-bottom_x-small">{selectedNode.name}</h3>
-                    <p class="slds-text-body_small slds-m-bottom_xx-small">Type: {selectedNodeType}</p>
-                    <p class="slds-text-body_small slds-m-bottom_x-small">Depth: {selectedNodeDepth}</p>
+                    <p class="slds-text-body_small slds-m-bottom_xx-small"><strong>Type:</strong> {selectedNodeType}</p>
+                    <p class="slds-text-body_small slds-m-bottom_xx-small"><strong>Depth:</strong> {selectedNodeDepth}</p>
+                    <p class="slds-text-body_small slds-m-bottom_xx-small"><strong>Connections:</strong> {selectedNodeConnectionCount}</p>
+                    <p class="slds-text-body_small slds-m-bottom_x-small"><strong>Direction:</strong> {selectedDirectionLabel}</p>
                     <template if:true={selectedNodeSetupUrl}>
                         <lightning-button
                             label="Open in Setup"
@@ -81,23 +143,7 @@
                         </lightning-button>
                     </template>
                 </template>
-            </div>
-
-            <div class="legend slds-m-bottom_small">
-                <template for:each={legendItems} for:item="item">
-                    <div key={item.label} class="legend-item">
-                        <span class="legend-color" style={item.style}></span>
-                        <span>{item.label}</span>
-                    </div>
-                </template>
-            </div>
-
-            <div class="stats-bar slds-box slds-theme_default">
-                <span>{statNodes} nodes</span>
-                <span>{statEdges} edges</span>
-                <span>depth {statDepth}</span>
-                <span>{statCycles} cycles</span>
-            </div>
+            </section>
         </template>
-    </div>
+    </section>
 </template>

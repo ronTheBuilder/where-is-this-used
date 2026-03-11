@@ -29,6 +29,23 @@
         </lightning-button>
     </div>
 
+    <!-- Search within results -->
+    <div class="slds-m-bottom_small">
+        <lightning-input
+            type="search"
+            label="Filter results"
+            placeholder="Type to filter by component name..."
+            variant="label-hidden"
+            onchange={handleSearchInput}
+            value={searchText}>
+        </lightning-input>
+        <template if:true={hasSearchFilter}>
+            <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                Showing {filteredResultCount} of {totalCount} results
+            </p>
+        </template>
+    </div>
+
     <!-- Filter badges -->
     <div class="slds-m-bottom_medium">
         <template for:each={filterBadges} for:item="badge">

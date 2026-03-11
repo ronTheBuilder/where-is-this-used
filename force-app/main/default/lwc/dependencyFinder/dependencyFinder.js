@@ -1,4 +1,6 @@
 import { LightningElement, track } from 'lwc';
+import getObjects from '@salesforce/apex/MetadataPickerController.getObjects';
+import findUnusedCustomFields from '@salesforce/apex/MetadataPickerController.findUnusedCustomFields';
 
 export default class DependencyFinder extends LightningElement {
     @track activeTab = 'finder';
@@ -7,6 +9,14 @@ export default class DependencyFinder extends LightningElement {
     @track error;
     @track blastMetadataType = '';
     @track blastComponentName = '';
+
+    // Unused fields scanner
+    @track unusedFieldsObject = '';
+    @track unusedFieldsResults = [];
+    @track unusedFieldsLoading = false;
+    @track unusedFieldsError = '';
+    @track unusedFieldsScanned = false;
+    @track cleanupObjectOptions = [];
 
     get isFinderTab() {
         return this.activeTab === 'finder';
@@ -18,6 +28,10 @@ export default class DependencyFinder extends LightningElement {
 
     get isBlastRadiusTab() {
         return this.activeTab === 'blastRadius';
+    }
+
+    get isCleanupTab() {
+        return this.activeTab === 'cleanup';
     }
 
     get hasResults() {
@@ -38,6 +52,18 @@ export default class DependencyFinder extends LightningElement {
 
     get hasBlastContext() {
         return !!this.blastMetadataType && !!this.blastComponentName;
+    }
+
+    get finderTabSelected() {
+        return this.isFinderTab ? 'true' : 'false';
+    }
+
+    get setupTabSelected() {
+        return this.isSetupTab ? 'true' : 'false';
+    }
+
+    get blastRadiusTabSelected() {
+        return this.isBlastRadiusTab ? 'true' : 'false';
     }
 
     handleTabClick(event) {

@@ -48,10 +48,17 @@ public with sharing class DataJourneyService {
         public String setupUrl;
     }
 
-    private class ActiveFlowVersion {
+    private class ActiveFlowVersion implements Comparable {
         public String id;
         public String apiName;
         public String label;
+
+        public Integer compareTo(Object other) {
+            ActiveFlowVersion o = (ActiveFlowVersion) other;
+            String a = apiName == null ? '' : apiName.toLowerCase();
+            String b = o.apiName == null ? '' : o.apiName.toLowerCase();
+            return a.compareTo(b);
+        }
     }
 
     private class FieldHop {
@@ -445,24 +452,18 @@ public with sharing class DataJourneyService {
     private static List<DependencyHit> queryDependenciesForField(String fullFieldName) {
         String fieldName = extractFieldName(fullFieldName);
         String refType = isCustomField(fieldName) ? 'CustomField' : 'StandardEntity';
-        String escapedField = String.escapeSingleQuotes(fullFieldName);
 
-        String soql =
-            'SELECT MetadataComponentId, MetadataComponentName, MetadataComponentType, MetadataComponentNamespace, RefMetadataComponentName ' +
-            'FROM MetadataComponentDependency ' +
-            'WHERE RefMetadataComponentType = \'' + String.escapeSingleQuotes(refType) + '\'';
+        String selectFields =
+            'MetadataComponentId, MetadataComponentName, MetadataComponentType, MetadataComponentNamespace, RefMetadataComponentName';
 
-        ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
+        ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryDependenciesWithNameFallback(
+            selectFields, refType, fullFieldName, MAX_DEPENDENCY_ROWS
+        );
         List<DependencyHit> hits = new List<DependencyHit>();
 
         for (Object recordObj : queryResponse.records) {
             Map<String, Object> row = ToolingApiClient.asMap(recordObj);
             if (row == null) {
-                continue;
-            }
-            // Client-side filter by name
-            String refName = String.valueOf(row.get('RefMetadataComponentName'));
-            if (refName == null || !refName.equalsIgnoreCase(fullFieldName)) {
                 continue;
             }
 
@@ -480,13 +481,9 @@ public with sharing class DataJourneyService {
     }
 
     private static List<ActiveFlowVersion> queryActiveFlows() {
-        String soql =
-            'SELECT Id, FlowDefinitionView.ApiName, FlowDefinitionView.Label ' +
-            'FROM FlowVersionView ' +
-            'WHERE Status = \'Active\' ' +
-            'ORDER BY FlowDefinitionView.ApiName';
-
-        ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
+        ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryFlowVersionsWithFallback(
+            null, 'Status = \'Active\'', MAX_DEPENDENCY_ROWS
+        );
         List<ActiveFlowVersion> flows = new List<ActiveFlowVersion>();
 
         for (Object recordObj : queryResponse.records) {
@@ -505,6 +502,8 @@ public with sharing class DataJourneyService {
             }
         }
 
+        // Sort client-side (removed ORDER BY for reliability)
+        flows.sort();
         return flows;
     }
 
@@ -528,9 +527,7 @@ public with sharing class DataJourneyService {
         }
 
         context.flowRetrievalCount++;
-        HttpResponse callout = ToolingApiClient.sendGet(ToolingApiClient.TOOLING_BASE_PATH + '/sobjects/Flow/' + flowVersionId);
-        Map<String, Object> payload = ToolingApiClient.asMap(JSON.deserializeUntyped(callout.getBody()));
-        Map<String, Object> metadata = payload == null ? null : ToolingApiClient.asMap(payload.get('Metadata'));
+        Map<String, Object> metadata = ToolingApiClient.getFlowMetadata(flowVersionId);
         FlowFieldAnalyzer.FlowFieldAnalysis analysis = FlowFieldAnalyzer.analyzeFlow(metadata);
         context.flowAnalysisByVersionId.put(flowVersionId, analysis);
         return analysis;

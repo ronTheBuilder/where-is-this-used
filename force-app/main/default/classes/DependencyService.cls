@@ -4,13 +4,20 @@ public with sharing class DependencyService {
 
     public class DependencyServiceException extends Exception {}
 
-    public class MetadataOption {
+    public class MetadataOption implements Comparable {
         @AuraEnabled public String label;
         @AuraEnabled public String value;
 
         public MetadataOption(String label, String value) {
             this.label = label;
             this.value = value;
+        }
+
+        public Integer compareTo(Object other) {
+            MetadataOption o = (MetadataOption) other;
+            String a = label == null ? '' : label.toLowerCase();
+            String b = o.label == null ? '' : o.label.toLowerCase();
+            return a.compareTo(b);
         }
     }
 
@@ -84,11 +91,28 @@ public with sharing class DependencyService {
 
         List<Object> filteredRecords = queryDependenciesWithFallback(refType, trimmedName);
 
+        // Custom Label fallback: if name-based search returns nothing, try ID-based search
+        if (filteredRecords.isEmpty() && metadataType == 'Custom Label') {
+            filteredRecords = queryCustomLabelDependenciesById(trimmedName);
+        }
+
         List<DependencyRecord> flattened = parseDependencyRecords(filteredRecords, trimmedName, refType);
 
         // Bug fix: try both 'Flow' and 'FlowDefinition'
         if (metadataType == 'Flow') {
             flattened.addAll(findSubflowUsages(componentName));
+        }
+
+        // Supplementary scan: Layouts & FlexiPages for field types
+        // (MetadataComponentDependency doesn't track Layout→Field relationships)
+        if (metadataType == 'Standard Field' || metadataType == 'Custom Field') {
+            try {
+                flattened.addAll(findLayoutsUsingField(trimmedName));
+                flattened.addAll(findFlexiPagesUsingField(trimmedName));
+            } catch (Exception ex) {
+                // Non-fatal: layout/flexipage scan is supplementary
+                System.debug(LoggingLevel.WARN, 'Layout/FlexiPage scan failed: ' + ex.getMessage());
+            }
         }
 
         Boolean limitReached = filteredRecords.size() >= MAX_DEPENDENCY_ROWS;
@@ -298,61 +322,55 @@ public with sharing class DependencyService {
     }
 
     /**
-     * Try server-side RefMetadataComponentName filter first.
-     * If 400 error, fall back to client-side filtering.
+     * Fallback for Custom Labels: resolve the ExternalString ID first, then query by RefMetadataComponentId.
+     * Handles cases where RefMetadataComponentType='CustomLabel' name-based query returns nothing
+     * (common with managed package labels or org-specific Tooling API behavior).
      */
-    private static List<Object> queryDependenciesWithFallback(String refType, String componentName) {
-        String escapedRefType = String.escapeSingleQuotes(refType);
-        String escapedName = String.escapeSingleQuotes(componentName);
-
-        // Try server-side filter first
+    private static List<Object> queryCustomLabelDependenciesById(String labelName) {
         try {
-            String soqlWithName =
+            String soql = 'SELECT Id FROM ExternalString WHERE Name = \'' +
+                String.escapeSingleQuotes(labelName) + '\' LIMIT 1';
+            ToolingApiClient.ToolingQueryResponse labelResult = ToolingApiClient.queryToolingRecords(soql, 1);
+            if (labelResult.records.isEmpty()) return new List<Object>();
+
+            Map<String, Object> labelRec = ToolingApiClient.asMap(labelResult.records[0]);
+            String labelId = String.valueOf(labelRec.get('Id'));
+            if (String.isBlank(labelId)) return new List<Object>();
+
+            String depSoql =
                 'SELECT MetadataComponentId, MetadataComponentName, MetadataComponentType, MetadataComponentNamespace, ' +
                 'RefMetadataComponentName, RefMetadataComponentType ' +
-                'FROM MetadataComponentDependency ' +
-                'WHERE RefMetadataComponentType = \'' + escapedRefType + '\' ' +
-                'AND RefMetadataComponentName = \'' + escapedName + '\'';
+                'FROM MetadataComponentDependency WHERE RefMetadataComponentId = \'' +
+                String.escapeSingleQuotes(labelId) + '\'';
 
-            ToolingApiClient.ToolingQueryResponse result = ToolingApiClient.queryToolingRecords(soqlWithName, MAX_DEPENDENCY_ROWS);
+            ToolingApiClient.ToolingQueryResponse depResult = ToolingApiClient.queryToolingRecords(depSoql, MAX_DEPENDENCY_ROWS);
+            return depResult.records;
+        } catch (Exception ex) {
+            System.debug(LoggingLevel.WARN, 'Custom label ID-based fallback failed: ' + ex.getMessage());
+            return new List<Object>();
+        }
+    }
+
+    private static List<Object> queryDependenciesWithFallback(String refType, String componentName) {
+        String selectFields =
+            'MetadataComponentId, MetadataComponentName, MetadataComponentType, MetadataComponentNamespace, ' +
+            'RefMetadataComponentName, RefMetadataComponentType';
+
+        try {
+            ToolingApiClient.ToolingQueryResponse result = ToolingApiClient.queryDependenciesWithNameFallback(
+                selectFields, refType, componentName, MAX_DEPENDENCY_ROWS
+            );
             return result.records;
         } catch (ToolingApiClient.ToolingApiClientException ex) {
-            // If server-side filtering not supported, fall back to client-side
-            if (!ex.getMessage().contains('invalid') && !ex.getMessage().contains('400')) {
-                throw new DependencyServiceException(ex.getMessage());
-            }
+            throw new DependencyServiceException(ex.getMessage());
         }
-
-        // Fallback: client-side filtering
-        String soqlWithoutName =
-            'SELECT MetadataComponentId, MetadataComponentName, MetadataComponentType, MetadataComponentNamespace, ' +
-            'RefMetadataComponentName, RefMetadataComponentType ' +
-            'FROM MetadataComponentDependency ' +
-            'WHERE RefMetadataComponentType = \'' + escapedRefType + '\'';
-
-        ToolingApiClient.ToolingQueryResponse result = ToolingApiClient.queryToolingRecords(soqlWithoutName, MAX_DEPENDENCY_ROWS);
-
-        List<Object> filtered = new List<Object>();
-        for (Object recordObj : result.records) {
-            Map<String, Object> row = ToolingApiClient.asMap(recordObj);
-            if (row == null) continue;
-            String refName = String.valueOf(row.get('RefMetadataComponentName'));
-            if (refName != null && refName.equalsIgnoreCase(componentName)) {
-                filtered.add(recordObj);
-            }
-        }
-        return filtered;
     }
 
     public static List<MetadataOption> getActiveFlows() {
         ToolingApiClient.enforceAccess();
-        // Bug fix: removed FlowDefinitionView.ApiName from WHERE/ORDER BY, filter client-side
-        // Bug fix: added ProcessType filter to exclude Screen Flows for subflow detection
-        String soql =
-            'SELECT Id, FlowDefinitionView.ApiName, FlowDefinitionView.Label ' +
-            'FROM FlowVersionView ' +
-            'WHERE Status = \'Active\'';
-        ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
+        ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryFlowVersionsWithFallback(
+            null, 'Status = \'Active\'', MAX_DEPENDENCY_ROWS
+        );
 
         Map<String, MetadataOption> unique = new Map<String, MetadataOption>();
         for (Object recordObj : queryResponse.records) {
@@ -364,7 +382,61 @@ public with sharing class DependencyService {
             if (String.isBlank(apiName)) continue;
 
             String label = String.valueOf(flowDefView.get('Label'));
-            unique.put(apiName, new MetadataOption(String.isBlank(label) ? apiName : label, apiName));
+            String namespace = flowDefView.get('NamespacePrefix') == null ? null : String.valueOf(flowDefView.get('NamespacePrefix'));
+
+            // Qualified name for managed package flows (e.g., npe03__Payments_Flow)
+            String qualifiedName = String.isNotBlank(namespace) ? namespace + '__' + apiName : apiName;
+            String displayLabel = String.isBlank(label) ? qualifiedName : label;
+            if (String.isNotBlank(namespace)) {
+                displayLabel += ' [' + namespace + ']';
+            }
+
+            unique.put(qualifiedName, new MetadataOption(displayLabel, qualifiedName));
+        }
+
+        List<String> keys = new List<String>(unique.keySet());
+        keys.sort();
+        List<MetadataOption> options = new List<MetadataOption>();
+        for (String key : keys) {
+            options.add(unique.get(key));
+        }
+        return options;
+    }
+
+    public static List<MetadataOption> getAllFlows() {
+        ToolingApiClient.enforceAccess();
+        ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryFlowVersionsWithFallback(
+            'Status, VersionNumber',
+            'Status IN (\'Active\', \'Draft\', \'Obsolete\', \'InvalidDraft\')',
+            MAX_DEPENDENCY_ROWS
+        );
+
+        // Deduplicate by qualifiedName — prefer Active version; include status + namespace in label
+        Map<String, MetadataOption> unique = new Map<String, MetadataOption>();
+        Map<String, String> bestStatus = new Map<String, String>();
+
+        for (Object recordObj : queryResponse.records) {
+            Map<String, Object> record = ToolingApiClient.asMap(recordObj);
+            Map<String, Object> flowDefView = ToolingApiClient.asMap(record.get('FlowDefinitionView'));
+            if (flowDefView == null) continue;
+
+            String apiName = String.valueOf(flowDefView.get('ApiName'));
+            if (String.isBlank(apiName)) continue;
+
+            String label = String.valueOf(flowDefView.get('Label'));
+            String namespace = flowDefView.get('NamespacePrefix') == null ? null : String.valueOf(flowDefView.get('NamespacePrefix'));
+            String status = record.get('Status') == null ? 'Unknown' : String.valueOf(record.get('Status'));
+
+            String qualifiedName = String.isNotBlank(namespace) ? namespace + '__' + apiName : apiName;
+            Boolean replace = !unique.containsKey(qualifiedName) || status == 'Active';
+            if (replace) {
+                String displayLabel = (String.isBlank(label) ? qualifiedName : label) + ' [' + status + ']';
+                if (String.isNotBlank(namespace)) {
+                    displayLabel += ' [' + namespace + ']';
+                }
+                unique.put(qualifiedName, new MetadataOption(displayLabel, qualifiedName));
+                bestStatus.put(qualifiedName, status);
+            }
         }
 
         List<String> keys = new List<String>(unique.keySet());
@@ -386,13 +458,14 @@ public with sharing class DependencyService {
      */
     public static List<MetadataOption> searchApexClasses(String searchTerm) {
         ToolingApiClient.enforceAccess();
+        String baseSoql = 'SELECT Id, Name, NamespacePrefix FROM ApexClass';
         String soql;
         if (String.isBlank(searchTerm)) {
-            soql = 'SELECT Id, Name FROM ApexClass WHERE NamespacePrefix = null ORDER BY Name LIMIT 50';
+            soql = baseSoql + ' ORDER BY Name LIMIT 50';
         } else {
             String escaped = String.escapeSingleQuotes(searchTerm.trim());
             String likePattern = '%' + escaped + '%';
-            soql = 'SELECT Id, Name FROM ApexClass WHERE NamespacePrefix = null AND Name LIKE \'' + likePattern + '\' ORDER BY Name LIMIT 50';
+            soql = baseSoql + ' WHERE Name LIKE \'' + likePattern + '\' ORDER BY Name LIMIT 50';
         }
         ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryToolingRecords(soql, 50);
 
@@ -400,10 +473,17 @@ public with sharing class DependencyService {
         for (Object recordObj : queryResponse.records) {
             Map<String, Object> record = ToolingApiClient.asMap(recordObj);
             String name = String.valueOf(record.get('Name'));
-            if (!String.isBlank(name)) {
-                options.add(new MetadataOption(name, name));
+            String namespace = record.get('NamespacePrefix') == null ? null : String.valueOf(record.get('NamespacePrefix'));
+            if (String.isBlank(name)) continue;
+
+            String qualifiedName = String.isNotBlank(namespace) ? namespace + '.' + name : name;
+            String displayLabel = name;
+            if (String.isNotBlank(namespace)) {
+                displayLabel += ' [' + namespace + ']';
             }
+            options.add(new MetadataOption(displayLabel, qualifiedName));
         }
+        options.sort();
         return options;
     }
 
@@ -424,9 +504,87 @@ public with sharing class DependencyService {
         return options;
     }
 
+    /**
+     * Find custom fields on a given object that have ZERO dependencies.
+     * Useful for org cleanup — identifying fields safe to remove.
+     */
+    public static List<MetadataOption> findUnusedCustomFields(String objectName) {
+        ToolingApiClient.enforceAccess();
+        if (String.isBlank(objectName)) {
+            return new List<MetadataOption>();
+        }
+
+        String escapedObj = String.escapeSingleQuotes(objectName);
+
+        // Get all custom fields on the object
+        String fieldSoql = 'SELECT Id, DeveloperName, TableEnumOrId FROM CustomField WHERE TableEnumOrId = \'' + escapedObj + '\'';
+        ToolingApiClient.ToolingQueryResponse fieldResult = ToolingApiClient.queryToolingRecords(fieldSoql, MAX_DEPENDENCY_ROWS);
+
+        if (fieldResult.records.isEmpty()) {
+            return new List<MetadataOption>();
+        }
+
+        // Collect all field IDs
+        Map<String, String> fieldIdToName = new Map<String, String>();
+        for (Object recordObj : fieldResult.records) {
+            Map<String, Object> rec = ToolingApiClient.asMap(recordObj);
+            if (rec == null) continue;
+            String fieldId = String.valueOf(rec.get('Id'));
+            String devName = String.valueOf(rec.get('DeveloperName'));
+            if (String.isNotBlank(fieldId) && String.isNotBlank(devName)) {
+                fieldIdToName.put(fieldId, devName);
+            }
+        }
+
+        if (fieldIdToName.isEmpty()) {
+            return new List<MetadataOption>();
+        }
+
+        // Query dependencies for ALL these fields in one go
+        Set<String> referencedFieldIds = new Set<String>();
+        // Query in batches of 50 IDs (SOQL IN clause limit is 100 for Tooling API)
+        List<String> allIds = new List<String>(fieldIdToName.keySet());
+        for (Integer i = 0; i < allIds.size(); i += 50) {
+            Integer endIdx = Math.min(i + 50, allIds.size());
+            List<String> batch = new List<String>();
+            for (Integer j = i; j < endIdx; j++) {
+                batch.add('\'' + String.escapeSingleQuotes(allIds[j]) + '\'');
+            }
+            String idList = String.join(batch, ', ');
+
+            try {
+                String depSoql = 'SELECT RefMetadataComponentId FROM MetadataComponentDependency WHERE RefMetadataComponentId IN (' + idList + ')';
+                ToolingApiClient.ToolingQueryResponse depResult = ToolingApiClient.queryToolingRecords(depSoql, MAX_DEPENDENCY_ROWS);
+                for (Object depObj : depResult.records) {
+                    Map<String, Object> dep = ToolingApiClient.asMap(depObj);
+                    if (dep != null && dep.get('RefMetadataComponentId') != null) {
+                        referencedFieldIds.add(String.valueOf(dep.get('RefMetadataComponentId')));
+                    }
+                }
+            } catch (ToolingApiClient.ToolingApiClientException ex) {
+                // Some orgs might not support this query; skip batch
+                System.debug(LoggingLevel.WARN, 'Unused field scan batch failed: ' + ex.getMessage());
+            }
+        }
+
+        // Fields NOT in referencedFieldIds are unused
+        List<MetadataOption> unused = new List<MetadataOption>();
+        for (String fieldId : fieldIdToName.keySet()) {
+            if (!referencedFieldIds.contains(fieldId)) {
+                String devName = fieldIdToName.get(fieldId);
+                unused.add(new MetadataOption(
+                    objectName + '.' + devName + '__c',
+                    objectName + '.' + devName + '__c'
+                ));
+            }
+        }
+        unused.sort();
+        return unused;
+    }
+
     public static List<MetadataOption> getCustomLabels() {
         ToolingApiClient.enforceAccess();
-        String soql = 'SELECT Id, Name, Value FROM ExternalString';
+        String soql = 'SELECT Id, Name, NamespacePrefix, Value FROM ExternalString';
         ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
 
         List<MetadataOption> options = new List<MetadataOption>();
@@ -434,12 +592,19 @@ public with sharing class DependencyService {
             Map<String, Object> record = ToolingApiClient.asMap(recordObj);
             String name = String.valueOf(record.get('Name'));
             String value = String.valueOf(record.get('Value'));
+            String namespace = record.get('NamespacePrefix') == null ? null : String.valueOf(record.get('NamespacePrefix'));
             if (String.isBlank(name)) continue;
+
             String displayLabel = name;
+            if (String.isNotBlank(namespace)) {
+                displayLabel = namespace + '__' + name;
+            }
             if (String.isNotBlank(value)) {
                 displayLabel += ' (' + (value.length() > 50 ? value.substring(0, 50) + '...' : value) + ')';
             }
-            options.add(new MetadataOption(displayLabel, name));
+            // Use the full qualified name (with namespace) as value for searching
+            String searchValue = String.isNotBlank(namespace) ? namespace + '__' + name : name;
+            options.add(new MetadataOption(displayLabel, searchValue));
         }
         return options;
     }
@@ -526,6 +691,135 @@ public with sharing class DependencyService {
         return !queryResponse.records.isEmpty();
     }
 
+    /**
+     * Scan Page Layouts for a field reference.
+     * Field format: ObjectName.FieldName (e.g. Account.Industry)
+     * Fetches each layout's metadata JSON and checks for the field API name.
+     */
+    private static final Integer MAX_LAYOUT_SCAN = 50;
+
+    private static List<DependencyRecord> findLayoutsUsingField(String objectDotField) {
+        List<DependencyRecord> results = new List<DependencyRecord>();
+        if (String.isBlank(objectDotField) || !objectDotField.contains('.')) {
+            return results;
+        }
+
+        String objectName = objectDotField.substringBefore('.');
+        String fieldName = objectDotField.substringAfter('.');
+
+        String soql = 'SELECT Id, Name, FullName FROM Layout WHERE TableEnumOrId = \'' +
+            String.escapeSingleQuotes(objectName) + '\'';
+
+        ToolingApiClient.ToolingQueryResponse layoutResult;
+        try {
+            layoutResult = ToolingApiClient.queryToolingRecords(soql, MAX_LAYOUT_SCAN);
+        } catch (ToolingApiClient.ToolingApiClientException ex) {
+            return results;
+        }
+
+        for (Object recordObj : layoutResult.records) {
+            // Check remaining callout budget before fetching metadata
+            if (Limits.getCallouts() >= Limits.getLimitCallouts() - 2) {
+                break;
+            }
+
+            Map<String, Object> row = ToolingApiClient.asMap(recordObj);
+            if (row == null) continue;
+
+            String layoutId = String.valueOf(row.get('Id'));
+            String layoutName = String.valueOf(row.get('Name'));
+            if (String.isBlank(layoutId)) continue;
+
+            try {
+                Map<String, Object> fullRecord = ToolingApiClient.getToolingRecord('Layout', layoutId);
+                if (fullRecord == null) continue;
+
+                // Serialize metadata and check for field name (case-insensitive)
+                String body = JSON.serialize(fullRecord);
+                if (body != null && body.toLowerCase().contains('"' + fieldName.toLowerCase() + '"')) {
+                    DependencyRecord dep = new DependencyRecord();
+                    dep.metadataComponentId = layoutId;
+                    dep.metadataComponentName = layoutName;
+                    dep.metadataComponentType = 'Layout';
+                    dep.refMetadataComponentName = objectDotField;
+                    dep.refMetadataComponentType = 'Field';
+                    dep.accessType = 'Layout Field';
+                    dep.setupUrl = '/lightning/setup/ObjectManager/' + objectName + '/PageLayouts/view';
+                    dep.isSubflowReference = false;
+                    results.add(dep);
+                }
+            } catch (Exception ex) {
+                // Skip individual layout errors
+                System.debug(LoggingLevel.WARN, 'Layout scan error for ' + layoutId + ': ' + ex.getMessage());
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * Scan Lightning Record Pages (FlexiPages) for a field reference.
+     */
+    private static final Integer MAX_FLEXIPAGE_SCAN = 30;
+
+    private static List<DependencyRecord> findFlexiPagesUsingField(String objectDotField) {
+        List<DependencyRecord> results = new List<DependencyRecord>();
+        if (String.isBlank(objectDotField) || !objectDotField.contains('.')) {
+            return results;
+        }
+
+        String objectName = objectDotField.substringBefore('.');
+        String fieldName = objectDotField.substringAfter('.');
+
+        // FlexiPages linked to an object via SobjectType
+        String soql = 'SELECT Id, DeveloperName, MasterLabel FROM FlexiPage WHERE SobjectType = \'' +
+            String.escapeSingleQuotes(objectName) + '\'';
+
+        ToolingApiClient.ToolingQueryResponse flexiResult;
+        try {
+            flexiResult = ToolingApiClient.queryToolingRecords(soql, MAX_FLEXIPAGE_SCAN);
+        } catch (ToolingApiClient.ToolingApiClientException ex) {
+            return results;
+        }
+
+        for (Object recordObj : flexiResult.records) {
+            if (Limits.getCallouts() >= Limits.getLimitCallouts() - 2) {
+                break;
+            }
+
+            Map<String, Object> row = ToolingApiClient.asMap(recordObj);
+            if (row == null) continue;
+
+            String pageId = String.valueOf(row.get('Id'));
+            String pageName = String.valueOf(row.get('MasterLabel'));
+            String devName = String.valueOf(row.get('DeveloperName'));
+            if (String.isBlank(pageId)) continue;
+
+            try {
+                Map<String, Object> fullRecord = ToolingApiClient.getToolingRecord('FlexiPage', pageId);
+                if (fullRecord == null) continue;
+
+                String body = JSON.serialize(fullRecord);
+                if (body != null && body.toLowerCase().contains('"' + fieldName.toLowerCase() + '"')) {
+                    DependencyRecord dep = new DependencyRecord();
+                    dep.metadataComponentId = pageId;
+                    dep.metadataComponentName = String.isBlank(pageName) ? devName : pageName;
+                    dep.metadataComponentType = 'FlexiPage';
+                    dep.refMetadataComponentName = objectDotField;
+                    dep.refMetadataComponentType = 'Field';
+                    dep.accessType = 'Record Page Field';
+                    dep.setupUrl = '/lightning/setup/ObjectManager/' + objectName + '/LightningPages/view';
+                    dep.isSubflowReference = false;
+                    results.add(dep);
+                }
+            } catch (Exception ex) {
+                System.debug(LoggingLevel.WARN, 'FlexiPage scan error for ' + pageId + ': ' + ex.getMessage());
+            }
+        }
+
+        return results;
+    }
+
     @TestVisible
     private static List<DependencyRecord> findSubflowUsages(String flowApiName) {
         if (String.isBlank(flowApiName)) {
@@ -535,14 +829,9 @@ public with sharing class DependencyService {
         ToolingApiClient.validateComponentName(flowApiName);
         String trimmedName = flowApiName.trim();
 
-        // Bug fix: removed WHERE filter on FlowDefinitionView.ApiName (not filterable on all orgs)
-        // Bug fix: added ProcessType filter to exclude Screen Flows
-        String soql =
-            'SELECT Id, FlowDefinitionView.ApiName, FlowDefinitionView.Label, ProcessType ' +
-            'FROM FlowVersionView ' +
-            'WHERE Status = \'Active\'';
-
-        ToolingApiClient.ToolingQueryResponse flowQuery = ToolingApiClient.queryToolingRecords(soql, MAX_FLOW_SCAN);
+        ToolingApiClient.ToolingQueryResponse flowQuery = ToolingApiClient.queryFlowVersionsWithFallback(
+            'ProcessType', 'Status = \'Active\'', MAX_FLOW_SCAN
+        );
         List<DependencyRecord> subflowRecords = new List<DependencyRecord>();
 
         for (Object recordObj : flowQuery.records) {
@@ -564,7 +853,7 @@ public with sharing class DependencyService {
             // Bug fix: wrap in try/catch to handle corrupted flow metadata
             Map<String, Object> flowMetadata;
             try {
-                flowMetadata = getFlowMetadata(flowVersionId);
+                flowMetadata = ToolingApiClient.getFlowMetadata(flowVersionId);
             } catch (Exception ex) {
                 System.debug(LoggingLevel.WARN, 'Skipping flow ' + parentApiName + ': ' + ex.getMessage());
                 continue;
@@ -588,11 +877,6 @@ public with sharing class DependencyService {
         return subflowRecords;
     }
 
-    private static Map<String, Object> getFlowMetadata(String flowVersionId) {
-        HttpResponse response = ToolingApiClient.sendGet(ToolingApiClient.TOOLING_BASE_PATH + '/sobjects/Flow/' + flowVersionId);
-        Map<String, Object> payload = ToolingApiClient.asMap(JSON.deserializeUntyped(response.getBody()));
-        return ToolingApiClient.asMap(payload.get('Metadata'));
-    }
 
     private static String getRefMetadataType(String metadataType) {
         Map<String, String> refTypes = new Map<String, String>{

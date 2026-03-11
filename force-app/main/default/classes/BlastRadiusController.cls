@@ -1,5 +1,5 @@
 public with sharing class BlastRadiusController {
-    @AuraEnabled
+    @AuraEnabled(cacheable=true)
     public static BlastRadiusService.BlastRadiusResponse getBlastRadius(
         String metadataType,
         String componentName,
