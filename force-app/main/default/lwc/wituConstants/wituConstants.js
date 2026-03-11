@@ -76,6 +76,21 @@ export const PROCESS_STEP_ICONS = {
     EntitlementRule: 'utility:task'
 };
 
+// Process Flow Map colors by step type
+export const PROCESS_STEP_COLORS = {
+    BeforeTrigger: '#9050E9',
+    AfterTrigger: '#9050E9',
+    ValidationRule: '#FE5C4C',
+    Flow_BeforeSave: '#1B96FF',
+    Flow_AfterSave: '#1B96FF',
+    Flow_Async: '#1B96FF',
+    WorkflowRule: '#FE9339',
+    WorkflowFieldUpdate: '#FE9339',
+    AssignmentRule: '#6DB9EF',
+    AutoResponseRule: '#6DB9EF',
+    EntitlementRule: '#6DB9EF'
+};
+
 // Human-readable labels for metadata types
 export const TYPE_LABELS = {
     FlowDefinition: 'Flow',

@@ -1,39 +1,10 @@
 import { LightningElement, api, track } from 'lwc';
 import traceDataJourney from '@salesforce/apex/DataJourneyController.traceDataJourney';
 import { loadD3Sankey } from 'c/d3Loader';
+import { NODE_TYPE_COLORS, NODE_TYPE_LABELS, RELATIONSHIP_LABELS } from 'c/wituConstants';
 
 const DEFAULT_MAX_DEPTH = '2';
 const ROW_HEIGHT = 86;
-const SVG_WIDTH = 1000;
-const CENTER_X = 500;
-const LEFT_X = 260;
-const RIGHT_X = 740;
-const INDENT_PIXELS = 48;
-
-const NODE_COLORS = {
-    field: '#1B96FF',
-    flow: '#9050E9',
-    apex: '#04844B',
-    validationRule: '#FE5C4C',
-    formula: '#0D9DDA',
-    workflowUpdate: '#FE9339'
-};
-
-const NODE_TYPE_LABELS = {
-    field: 'Field',
-    flow: 'Flow',
-    apex: 'Apex',
-    validationRule: 'Validation Rule',
-    formula: 'Formula',
-    workflowUpdate: 'Workflow Field Update'
-};
-
-const RELATIONSHIP_LABELS = {
-    writes_to: 'writes to',
-    read_by: 'reads from',
-    triggers: 'triggers',
-    feeds_into: 'feeds into'
-};
 
 const SANKEY_MARGIN = 40;
 const SANKEY_LINK_COLORS = {
@@ -229,30 +200,6 @@ export default class DataJourneyView extends LightningElement {
         return `min-height: ${this.canvasHeight}px;`;
     }
 
-    get svgViewBox() {
-        return `0 0 ${SVG_WIDTH} ${this.canvasHeight}`;
-    }
-
-    get connectorPaths() {
-        const centerY = this.canvasHeight / 2;
-        const paths = [];
-
-        this.upstreamNodes.forEach((node, index) => {
-            const y = 36 + index * ROW_HEIGHT;
-            const d = `M ${LEFT_X} ${y} C ${LEFT_X + 70} ${y} ${CENTER_X - 150} ${centerY} ${CENTER_X - 88} ${centerY}`;
-            paths.push({ key: `u-${node.id}`, d, marker: 'url(#to-center)' });
-        });
-
-        this.downstreamNodes.forEach((node, index) => {
-            const y = 36 + index * ROW_HEIGHT;
-            const xEnd = RIGHT_X + node.chainDepth * INDENT_PIXELS;
-            const d = `M ${CENTER_X + 88} ${centerY} C ${CENTER_X + 180} ${centerY} ${xEnd - 100} ${y} ${xEnd} ${y}`;
-            paths.push({ key: `d-${node.id}`, d, marker: 'url(#to-node)' });
-        });
-
-        return paths;
-    }
-
     handleDepthChange(event) {
         this.selectedDepth = event.detail.value;
         this.loadJourney();
@@ -264,7 +211,7 @@ export default class DataJourneyView extends LightningElement {
 
     handleOpenSetup() {
         if (this.selectedNode?.setupUrl) {
-            window.open(this.selectedNode.setupUrl, '_blank');
+            window.open(this.selectedNode.setupUrl, '_blank', 'noopener,noreferrer');
         }
     }
 
@@ -480,7 +427,7 @@ export default class DataJourneyView extends LightningElement {
             .attr('y', d => d.y0)
             .attr('height', d => Math.max(1, d.y1 - d.y0))
             .attr('width', d => d.x1 - d.x0)
-            .attr('fill', d => NODE_COLORS[d.nodeType] || '#54698D')
+            .attr('fill', d => NODE_TYPE_COLORS[d.nodeType] || '#54698D')
             .attr('rx', 3)
             .attr('ry', 3)
             .append('title')
@@ -561,7 +508,7 @@ export default class DataJourneyView extends LightningElement {
 
         return {
             ...node,
-            colorStyle: `background-color: ${NODE_COLORS[node.nodeType] || '#54698D'};`,
+            colorStyle: `background-color: ${NODE_TYPE_COLORS[node.nodeType] || '#54698D'};`,
             relationshipLabel,
             relationshipClass: relationshipLabel.includes('write') ? 'relation relation-write' : 'relation relation-read',
             isSelected: this.selectedNodeId === node.id,

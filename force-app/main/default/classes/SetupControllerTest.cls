@@ -68,7 +68,7 @@ private with sharing class SetupControllerTest {
         ToolingApiClient.bypassAccessCheckForTests = true;
 
         Test.startTest();
-        List<SetupController.UserInfo> users = SetupController.getUsers('Admin');
+        List<SetupController.UserSummary> users = SetupController.getUsers('Admin');
         Test.stopTest();
 
         // At least the running user should match in most test contexts

@@ -48,6 +48,13 @@ export default class SetupWizard extends LightningElement {
         this.loadOrgDomain();
     }
 
+    disconnectedCallback() {
+        if (this._searchTimeout) {
+            window.clearTimeout(this._searchTimeout);
+            this._searchTimeout = null;
+        }
+    }
+
     async loadAuthMode() {
         try {
             this.authMode = await getAuthMode();

@@ -1,6 +1,4 @@
 import { LightningElement, track } from 'lwc';
-import getObjects from '@salesforce/apex/MetadataPickerController.getObjects';
-import findUnusedCustomFields from '@salesforce/apex/MetadataPickerController.findUnusedCustomFields';
 
 export default class DependencyFinder extends LightningElement {
     @track activeTab = 'finder';
@@ -9,14 +7,6 @@ export default class DependencyFinder extends LightningElement {
     @track error;
     @track blastMetadataType = '';
     @track blastComponentName = '';
-
-    // Unused fields scanner
-    @track unusedFieldsObject = '';
-    @track unusedFieldsResults = [];
-    @track unusedFieldsLoading = false;
-    @track unusedFieldsError = '';
-    @track unusedFieldsScanned = false;
-    @track cleanupObjectOptions = [];
 
     get isFinderTab() {
         return this.activeTab === 'finder';
@@ -28,10 +18,6 @@ export default class DependencyFinder extends LightningElement {
 
     get isBlastRadiusTab() {
         return this.activeTab === 'blastRadius';
-    }
-
-    get isCleanupTab() {
-        return this.activeTab === 'cleanup';
     }
 
     get hasResults() {

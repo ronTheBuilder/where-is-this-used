@@ -193,15 +193,15 @@ public with sharing class BlastRadiusService {
                 continue;
             }
 
-            String depName = String.valueOf(row.get('MetadataComponentName'));
-            String depType = String.valueOf(row.get('MetadataComponentType'));
+            String depName = asNullableString(row.get('MetadataComponentName'));
+            String depType = asNullableString(row.get('MetadataComponentType'));
             if (String.isBlank(depName) || String.isBlank(depType)) {
                 continue;
             }
 
             String depId = row.get('MetadataComponentId') == null
                 ? buildSyntheticId(depType, depName)
-                : String.valueOf(row.get('MetadataComponentId'));
+                : asNullableString(row.get('MetadataComponentId'));
             dependents.add(new ComponentRef(depId, depName, depType, nextDepth));
         }
 
@@ -329,5 +329,9 @@ public with sharing class BlastRadiusService {
 
     private static String buildSyntheticId(String componentType, String componentName) {
         return 'synthetic:' + makeNodeKey(componentType, componentName);
+    }
+
+    private static String asNullableString(Object value) {
+        return value == null ? null : String.valueOf(value);
     }
 }

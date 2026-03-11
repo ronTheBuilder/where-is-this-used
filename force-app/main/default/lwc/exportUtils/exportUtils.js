@@ -109,7 +109,7 @@ export function buildProcessFlowCsv(phases) {
     const rows = [header];
 
     for (const phase of (phases || [])) {
-        for (const auto of (phase.automations || [])) {
+        for (const auto of (phase.steps || [])) {
             rows.push(buildCsvRow([
                 phase.phaseNumber,
                 phase.phaseName,
@@ -184,7 +184,7 @@ export function buildPackageXml(groups, searchContext) {
         xml += '    </types>\n';
     }
 
-    xml += '    <version>65.0</version>\n';
+    xml += '    <version>66.0</version>\n';
     xml += '</Package>\n';
     return xml;
 }

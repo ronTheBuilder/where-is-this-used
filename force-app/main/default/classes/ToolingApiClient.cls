@@ -378,7 +378,7 @@ public with sharing class ToolingApiClient {
             String apiName = row.get('ApiName') == null ? null : String.valueOf(row.get('ApiName'));
             if (String.isBlank(activeVersionId) || String.isBlank(apiName)) continue;
 
-            Map<String, Object> shaped_record = new Map<String, Object>{
+            Map<String, Object> shapedRecord = new Map<String, Object>{
                 'Id' => activeVersionId,
                 'FlowDefinitionView' => new Map<String, Object>{
                     'ApiName' => apiName,
@@ -386,7 +386,7 @@ public with sharing class ToolingApiClient {
                     'NamespacePrefix' => row.get('NamespacePrefix') == null ? null : String.valueOf(row.get('NamespacePrefix'))
                 }
             };
-            shaped.records.add(shaped_record);
+            shaped.records.add(shapedRecord);
         }
 
         return shaped;

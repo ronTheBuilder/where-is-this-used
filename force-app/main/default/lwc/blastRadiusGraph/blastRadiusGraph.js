@@ -1,6 +1,14 @@
 import { LightningElement, api, track } from 'lwc';
 import getBlastRadius from '@salesforce/apex/BlastRadiusController.getBlastRadius';
 import { loadD3 } from 'c/d3Loader';
+import {
+    METADATA_TYPE_COLORS,
+    TYPE_TEXT_ICONS,
+    ROOT_COLOR,
+    CYCLE_COLOR,
+    DEFAULT_COLOR,
+    TYPE_LABELS
+} from 'c/wituConstants';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const NODE_WIDTH = 188;
@@ -12,36 +20,14 @@ const MAX_LABEL_LENGTH = 24;
 const MIN_ZOOM = 0.55;
 const MAX_ZOOM = 2.2;
 
-const TYPE_COLORS = {
-    Flow: '#1B96FF',
-    FlowDefinition: '#1B96FF',
-    ApexClass: '#9050E9',
-    ApexTrigger: '#BA01FF',
-    ValidationRule: '#FE5C4C',
-    Layout: '#04844B',
-    LightningComponentBundle: '#0D9DDA',
-    AuraDefinitionBundle: '#0D9DDA'
-};
-
-const TYPE_ICONS = {
-    Flow: '⚡',
-    FlowDefinition: '⚡',
-    ApexClass: '<>',
-    ApexTrigger: '<>',
-    ValidationRule: '✓',
-    Layout: '▤',
-    LightningComponentBundle: '◇',
-    AuraDefinitionBundle: '◇'
-};
-
 const LEGEND = [
     { label: 'Flow', type: 'Flow', icon: '⚡' },
     { label: 'Apex', type: 'ApexClass', icon: '<>' },
     { label: 'Validation', type: 'ValidationRule', icon: '✓' },
     { label: 'Layout', type: 'Layout', icon: '▤' },
     { label: 'LWC/Aura', type: 'LightningComponentBundle', icon: '◇' },
-    { label: 'Root', color: '#FF538A', icon: '●' },
-    { label: 'Cycle', color: '#FE9339', icon: '↺' }
+    { label: 'Root', color: ROOT_COLOR, icon: '●' },
+    { label: 'Cycle', color: CYCLE_COLOR, icon: '↺' }
 ];
 
 export default class BlastRadiusGraph extends LightningElement {
@@ -203,7 +189,7 @@ export default class BlastRadiusGraph extends LightningElement {
 
     get legendItems() {
         return LEGEND.map((item, idx) => {
-            const color = item.color || TYPE_COLORS[item.type] || '#5F6A7D';
+            const color = item.color || METADATA_TYPE_COLORS[item.type] || DEFAULT_COLOR;
             const slug = (item.type || item.label || 'item').replace(/\s+/g, '-').toLowerCase();
             return {
                 ...item,
@@ -1496,16 +1482,16 @@ export default class BlastRadiusGraph extends LightningElement {
 
     getNodeColor(node) {
         if (node.isRoot) {
-            return '#FF538A';
+            return ROOT_COLOR;
         }
         if (node.isCycleNode) {
-            return '#FE9339';
+            return CYCLE_COLOR;
         }
-        return TYPE_COLORS[node.componentType] || '#5F6A7D';
+        return METADATA_TYPE_COLORS[node.componentType] || DEFAULT_COLOR;
     }
 
     getTypeIcon(type) {
-        return TYPE_ICONS[type] || '*';
+        return TYPE_TEXT_ICONS[type] || '*';
     }
 
     truncate(value, size) {
@@ -1521,16 +1507,7 @@ export default class BlastRadiusGraph extends LightningElement {
             return 'Unknown';
         }
 
-        const labels = {
-            FlowDefinition: 'Flow',
-            ApexClass: 'Apex Class',
-            ApexTrigger: 'Apex Trigger',
-            ValidationRule: 'Validation Rule',
-            LightningComponentBundle: 'LWC',
-            AuraDefinitionBundle: 'Aura'
-        };
-
-        return labels[type] || type;
+        return TYPE_LABELS[type] || type;
     }
 
     reduceError(error) {

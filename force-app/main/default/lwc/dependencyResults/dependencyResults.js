@@ -1,40 +1,13 @@
 import { LightningElement, api, track } from 'lwc';
 import { loadD3 } from 'c/d3Loader';
+import { TYPE_SLDS_ICONS, METADATA_TYPE_COLORS } from 'c/wituConstants';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
-
-const TYPE_ICONS = {
-    ApexClass: 'custom:custom24',
-    ApexTrigger: 'custom:custom24',
-    Flow: 'standard:flow',
-    ValidationRule: 'standard:record',
-    Layout: 'standard:record_lookup',
-    LightningComponentBundle: 'standard:lightning_component',
-    AuraDefinitionBundle: 'standard:lightning_component',
-    Page: 'standard:visualforce_page',
-    EmailTemplate: 'standard:email',
-    CustomField: 'standard:custom_notification',
-    FlowDefinition: 'standard:flow'
-};
 
 const BADGE_VARIANTS = {
     Read: 'success',
     Write: 'warning',
     'Read & Write': 'error'
-};
-
-const METADATA_TYPE_COLORS = {
-    Flow: '#1B96FF',
-    FlowDefinition: '#1B96FF',
-    ApexClass: '#9050E9',
-    ApexTrigger: '#BA01FF',
-    ValidationRule: '#FE5C4C',
-    Layout: '#04844B',
-    LightningComponentBundle: '#0D9DDA',
-    AuraDefinitionBundle: '#0D9DDA',
-    Page: '#706E6B',
-    EmailTemplate: '#706E6B',
-    CustomField: '#706E6B'
 };
 
 const ACCESS_TYPE_COLORS = {
@@ -160,7 +133,7 @@ export default class DependencyResults extends LightningElement {
                     count: records.length,
                     isExpanded: this.expandedGroups[g.componentType] !== false,
                     chevronIcon: this.expandedGroups[g.componentType] !== false ? 'utility:chevrondown' : 'utility:chevronright',
-                    iconName: TYPE_ICONS[g.componentType] || 'standard:default',
+                    iconName: TYPE_SLDS_ICONS[g.componentType] || 'standard:default',
                     records
                 };
             })
@@ -199,7 +172,7 @@ export default class DependencyResults extends LightningElement {
     handleOpenSetup(event) {
         const url = event.currentTarget.dataset.url;
         if (url) {
-            window.open(url, '_blank');
+            window.open(url, '_blank', 'noopener,noreferrer');
         }
     }
 
@@ -391,7 +364,7 @@ export default class DependencyResults extends LightningElement {
                 if (node.data.setupUrl) {
                     circle.addEventListener('click', (ev) => {
                         ev.stopPropagation();
-                        window.open(node.data.setupUrl, '_blank');
+                        window.open(node.data.setupUrl, '_blank', 'noopener,noreferrer');
                     });
                 }
 
@@ -560,7 +533,7 @@ export default class DependencyResults extends LightningElement {
                 if (n.data.setupUrl) {
                     circle.addEventListener('click', (ev) => {
                         ev.stopPropagation();
-                        window.open(n.data.setupUrl, '_blank');
+                        window.open(n.data.setupUrl, '_blank', 'noopener,noreferrer');
                     });
                 }
 

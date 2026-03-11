@@ -253,7 +253,7 @@ public with sharing class DependencyService {
             return results;
         }
         Map<String, Object> row = ToolingApiClient.asMap(q.records[0]);
-        String vrId = row == null ? null : String.valueOf(row.get('Id'));
+        String vrId = row == null ? null : asNullableString(row.get('Id'));
         if (String.isBlank(vrId)) {
             return results;
         }
@@ -267,7 +267,7 @@ public with sharing class DependencyService {
         Map<String, Object> meta = ToolingApiClient.asMap(metaObj);
         Object formulaObj = meta == null ? null : (meta.get('errorConditionFormula') != null
             ? meta.get('errorConditionFormula') : meta.get('ErrorConditionFormula'));
-        String formula = formulaObj == null ? null : String.valueOf(formulaObj);
+        String formula = formulaObj == null ? null : asNullableString(formulaObj);
         if (String.isBlank(formula)) {
             return results;
         }
@@ -309,14 +309,14 @@ public with sharing class DependencyService {
         for (Object recordObj : queryResult.records) {
             Map<String, Object> row = ToolingApiClient.asMap(recordObj);
             if (row == null) continue;
-            String mcName = String.valueOf(row.get('MetadataComponentName'));
+            String mcName = asNullableString(row.get('MetadataComponentName'));
             if (mcName != null && mcName.equalsIgnoreCase(componentName)) {
                 DependencyRecord dep = new DependencyRecord();
-                dep.metadataComponentId = String.valueOf(row.get('RefMetadataComponentId'));
-                dep.metadataComponentName = String.valueOf(row.get('RefMetadataComponentName'));
-                dep.metadataComponentType = String.valueOf(row.get('RefMetadataComponentType'));
+                dep.metadataComponentId = asNullableString(row.get('RefMetadataComponentId'));
+                dep.metadataComponentName = asNullableString(row.get('RefMetadataComponentName'));
+                dep.metadataComponentType = asNullableString(row.get('RefMetadataComponentType'));
                 dep.metadataComponentNamespace = row.get('RefMetadataComponentNamespace') == null
-                    ? null : String.valueOf(row.get('RefMetadataComponentNamespace'));
+                    ? null : asNullableString(row.get('RefMetadataComponentNamespace'));
                 dep.refMetadataComponentName = componentName;
                 dep.refMetadataComponentType = toolingType;
                 dep.accessType = 'Read';
@@ -351,7 +351,7 @@ public with sharing class DependencyService {
             if (labelResult.records.isEmpty()) return new List<Object>();
 
             Map<String, Object> labelRec = ToolingApiClient.asMap(labelResult.records[0]);
-            String labelId = String.valueOf(labelRec.get('Id'));
+            String labelId = asNullableString(labelRec.get('Id'));
             if (String.isBlank(labelId)) return new List<Object>();
 
             String depSoql =
@@ -395,11 +395,11 @@ public with sharing class DependencyService {
             Map<String, Object> flowDefView = ToolingApiClient.asMap(record.get('FlowDefinitionView'));
             if (flowDefView == null) continue;
 
-            String apiName = String.valueOf(flowDefView.get('ApiName'));
+            String apiName = asNullableString(flowDefView.get('ApiName'));
             if (String.isBlank(apiName)) continue;
 
-            String label = String.valueOf(flowDefView.get('Label'));
-            String namespace = flowDefView.get('NamespacePrefix') == null ? null : String.valueOf(flowDefView.get('NamespacePrefix'));
+            String label = asNullableString(flowDefView.get('Label'));
+            String namespace = flowDefView.get('NamespacePrefix') == null ? null : asNullableString(flowDefView.get('NamespacePrefix'));
 
             // Qualified name for managed package flows (e.g., npe03__Payments_Flow)
             String qualifiedName = String.isNotBlank(namespace) ? namespace + '__' + apiName : apiName;
@@ -437,12 +437,12 @@ public with sharing class DependencyService {
             Map<String, Object> flowDefView = ToolingApiClient.asMap(record.get('FlowDefinitionView'));
             if (flowDefView == null) continue;
 
-            String apiName = String.valueOf(flowDefView.get('ApiName'));
+            String apiName = asNullableString(flowDefView.get('ApiName'));
             if (String.isBlank(apiName)) continue;
 
-            String label = String.valueOf(flowDefView.get('Label'));
-            String namespace = flowDefView.get('NamespacePrefix') == null ? null : String.valueOf(flowDefView.get('NamespacePrefix'));
-            String status = record.get('Status') == null ? 'Unknown' : String.valueOf(record.get('Status'));
+            String label = asNullableString(flowDefView.get('Label'));
+            String namespace = flowDefView.get('NamespacePrefix') == null ? null : asNullableString(flowDefView.get('NamespacePrefix'));
+            String status = record.get('Status') == null ? 'Unknown' : asNullableString(record.get('Status'));
 
             String qualifiedName = String.isNotBlank(namespace) ? namespace + '__' + apiName : apiName;
             Boolean replace = !unique.containsKey(qualifiedName) || status == 'Active';
@@ -489,8 +489,8 @@ public with sharing class DependencyService {
         List<MetadataOption> options = new List<MetadataOption>();
         for (Object recordObj : queryResponse.records) {
             Map<String, Object> record = ToolingApiClient.asMap(recordObj);
-            String name = String.valueOf(record.get('Name'));
-            String namespace = record.get('NamespacePrefix') == null ? null : String.valueOf(record.get('NamespacePrefix'));
+            String name = asNullableString(record.get('Name'));
+            String namespace = record.get('NamespacePrefix') == null ? null : asNullableString(record.get('NamespacePrefix'));
             if (String.isBlank(name)) continue;
 
             String qualifiedName = String.isNotBlank(namespace) ? namespace + '.' + name : name;
@@ -546,8 +546,8 @@ public with sharing class DependencyService {
         for (Object recordObj : fieldResult.records) {
             Map<String, Object> rec = ToolingApiClient.asMap(recordObj);
             if (rec == null) continue;
-            String fieldId = String.valueOf(rec.get('Id'));
-            String devName = String.valueOf(rec.get('DeveloperName'));
+            String fieldId = asNullableString(rec.get('Id'));
+            String devName = asNullableString(rec.get('DeveloperName'));
             if (String.isNotBlank(fieldId) && String.isNotBlank(devName)) {
                 fieldIdToName.put(fieldId, devName);
             }
@@ -575,7 +575,7 @@ public with sharing class DependencyService {
                 for (Object depObj : depResult.records) {
                     Map<String, Object> dep = ToolingApiClient.asMap(depObj);
                     if (dep != null && dep.get('RefMetadataComponentId') != null) {
-                        referencedFieldIds.add(String.valueOf(dep.get('RefMetadataComponentId')));
+                        referencedFieldIds.add(asNullableString(dep.get('RefMetadataComponentId')));
                     }
                 }
             } catch (ToolingApiClient.ToolingApiClientException ex) {
@@ -607,9 +607,9 @@ public with sharing class DependencyService {
         List<MetadataOption> options = new List<MetadataOption>();
         for (Object recordObj : queryResponse.records) {
             Map<String, Object> record = ToolingApiClient.asMap(recordObj);
-            String name = String.valueOf(record.get('Name'));
-            String value = String.valueOf(record.get('Value'));
-            String namespace = record.get('NamespacePrefix') == null ? null : String.valueOf(record.get('NamespacePrefix'));
+            String name = asNullableString(record.get('Name'));
+            String value = asNullableString(record.get('Value'));
+            String namespace = record.get('NamespacePrefix') == null ? null : asNullableString(record.get('NamespacePrefix'));
             if (String.isBlank(name)) continue;
 
             String displayLabel = name;
@@ -667,7 +667,7 @@ public with sharing class DependencyService {
         List<MetadataOption> options = new List<MetadataOption>();
         for (Object recordObj : queryResponse.records) {
             Map<String, Object> record = ToolingApiClient.asMap(recordObj);
-            String vrName = String.valueOf(record.get('ValidationName'));
+            String vrName = asNullableString(record.get('ValidationName'));
             Boolean isActive = record.get('Active') == null ? false : (Boolean) record.get('Active');
             if (String.isBlank(vrName)) continue;
             String displayLabel = vrName + (isActive ? ' [Active]' : ' [Inactive]');
@@ -743,8 +743,8 @@ public with sharing class DependencyService {
             Map<String, Object> row = ToolingApiClient.asMap(recordObj);
             if (row == null) continue;
 
-            String layoutId = String.valueOf(row.get('Id'));
-            String layoutName = String.valueOf(row.get('Name'));
+            String layoutId = asNullableString(row.get('Id'));
+            String layoutName = asNullableString(row.get('Name'));
             if (String.isBlank(layoutId)) continue;
 
             try {
@@ -807,9 +807,9 @@ public with sharing class DependencyService {
             Map<String, Object> row = ToolingApiClient.asMap(recordObj);
             if (row == null) continue;
 
-            String pageId = String.valueOf(row.get('Id'));
-            String pageName = String.valueOf(row.get('MasterLabel'));
-            String devName = String.valueOf(row.get('DeveloperName'));
+            String pageId = asNullableString(row.get('Id'));
+            String pageName = asNullableString(row.get('MasterLabel'));
+            String devName = asNullableString(row.get('DeveloperName'));
             if (String.isBlank(pageId)) continue;
 
             try {
@@ -854,18 +854,18 @@ public with sharing class DependencyService {
 
         for (Object recordObj : flowQuery.records) {
             Map<String, Object> record = ToolingApiClient.asMap(recordObj);
-            String flowVersionId = String.valueOf(record.get('Id'));
+            String flowVersionId = asNullableString(record.get('Id'));
             if (String.isBlank(flowVersionId)) continue;
 
             Map<String, Object> flowDefView = ToolingApiClient.asMap(record.get('FlowDefinitionView'));
-            String parentApiName = flowDefView == null ? null : String.valueOf(flowDefView.get('ApiName'));
-            String parentLabel = flowDefView == null ? null : String.valueOf(flowDefView.get('Label'));
+            String parentApiName = flowDefView == null ? null : asNullableString(flowDefView.get('ApiName'));
+            String parentLabel = flowDefView == null ? null : asNullableString(flowDefView.get('Label'));
 
             // Skip the flow we're searching for
             if (parentApiName != null && parentApiName.equalsIgnoreCase(trimmedName)) continue;
 
             // Skip Screen Flows (they can't contain subflows)
-            String processType = String.valueOf(record.get('ProcessType'));
+            String processType = asNullableString(record.get('ProcessType'));
             if (processType == 'Flow') continue; // 'Flow' = Screen Flow in SF terminology
 
             // Bug fix: wrap in try/catch to handle corrupted flow metadata
@@ -922,11 +922,11 @@ public with sharing class DependencyService {
             if (row == null) continue;
 
             DependencyRecord dep = new DependencyRecord();
-            dep.metadataComponentId = String.valueOf(row.get('MetadataComponentId'));
-            dep.metadataComponentName = String.valueOf(row.get('MetadataComponentName'));
-            dep.metadataComponentType = String.valueOf(row.get('MetadataComponentType'));
+            dep.metadataComponentId = asNullableString(row.get('MetadataComponentId'));
+            dep.metadataComponentName = asNullableString(row.get('MetadataComponentName'));
+            dep.metadataComponentType = asNullableString(row.get('MetadataComponentType'));
             dep.metadataComponentNamespace = row.get('MetadataComponentNamespace') == null
-                ? null : String.valueOf(row.get('MetadataComponentNamespace'));
+                ? null : asNullableString(row.get('MetadataComponentNamespace'));
             dep.refMetadataComponentName = refComponentName;
             dep.refMetadataComponentType = refComponentType;
             dep.accessType = inferAccessType(dep.metadataComponentType);
@@ -980,7 +980,7 @@ public with sharing class DependencyService {
         if (metadataNode instanceof Map<String, Object>) {
             Map<String, Object> node = (Map<String, Object>) metadataNode;
             if (node.containsKey('flowName')) {
-                String flowName = String.valueOf(node.get('flowName'));
+                String flowName = asNullableString(node.get('flowName'));
                 if (!String.isBlank(flowName) && flowName.toLowerCase() == targetFlowApiName.toLowerCase()) {
                     return true;
                 }
@@ -1003,5 +1003,9 @@ public with sharing class DependencyService {
         }
 
         return false;
+    }
+
+    private static String asNullableString(Object value) {
+        return value == null ? null : String.valueOf(value);
     }
 }

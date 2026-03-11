@@ -1,8 +1,13 @@
 public with sharing class SetupController {
+    private static final Set<String> ALLOWED_PERMISSION_SET_NAMES = new Set<String>{
+        'Where_Is_This_Used_User',
+        'Where_Is_This_Used_Admin'
+    };
 
     @AuraEnabled
     public static String getAuthMode() {
         ToolingApiClient.enforceAccess();
+        ensureSettingsReadAccess();
         WITU_Settings__c settings = WITU_Settings__c.getInstance();
         if (settings != null && settings.Use_Named_Credential__c == true) {
             return 'namedCredential';
@@ -13,6 +18,7 @@ public with sharing class SetupController {
     @AuraEnabled
     public static void setAuthMode(String mode) {
         ToolingApiClient.enforceAccess();
+        ensureSettingsWriteAccess();
         WITU_Settings__c settings = WITU_Settings__c.getOrgDefaults();
         settings.Use_Named_Credential__c = (mode == 'namedCredential');
         upsert settings;
@@ -30,9 +36,11 @@ public with sharing class SetupController {
     }
 
     @AuraEnabled
-    public static List<UserInfo> getUsers(String searchTerm) {
+    public static List<UserSummary> getUsers(String searchTerm) {
         ToolingApiClient.enforceAccess();
-        String likeClause = '%' + String.escapeSingleQuotes(searchTerm) + '%';
+        ensureUserReadAccess();
+        String term = String.isBlank(searchTerm) ? '' : searchTerm.trim();
+        String likeClause = '%' + String.escapeSingleQuotes(term) + '%';
         List<User> users = [
             SELECT Id, Name, Username, Email, IsActive
             FROM User
@@ -41,9 +49,9 @@ public with sharing class SetupController {
             ORDER BY Name
             LIMIT 50
         ];
-        List<UserInfo> results = new List<UserInfo>();
+        List<UserSummary> results = new List<UserSummary>();
         for (User u : users) {
-            results.add(new UserInfo(u));
+            results.add(new UserSummary(u));
         }
         return results;
     }
@@ -57,6 +65,12 @@ public with sharing class SetupController {
         if (String.isBlank(permSetName)) {
             throw new AuraHandledException('Permission set name is required.');
         }
+        if (!ALLOWED_PERMISSION_SET_NAMES.contains(permSetName)) {
+            throw new AuraHandledException('Unsupported permission set name: ' + permSetName);
+        }
+        ensurePermissionSetReadAccess();
+        ensurePermissionSetAssignmentReadAccess();
+        ensurePermissionSetAssignmentCreateAccess();
 
         List<PermissionSet> psList = [SELECT Id FROM PermissionSet WHERE Name = :permSetName LIMIT 1];
         if (psList.isEmpty()) {
@@ -86,6 +100,7 @@ public with sharing class SetupController {
     @AuraEnabled
     public static List<PermissionAssignmentInfo> getPermissionSetAssignments() {
         ToolingApiClient.enforceAccess();
+        ensurePermissionSetAssignmentListAccess();
         List<PermissionSetAssignment> psas = [
             SELECT Id, Assignee.Name, Assignee.Username, PermissionSet.Name, PermissionSet.Label
             FROM PermissionSetAssignment
@@ -233,6 +248,7 @@ public with sharing class SetupController {
         if (assignmentId == null) {
             throw new AuraHandledException('Assignment ID is required.');
         }
+        ensurePermissionSetAssignmentDeleteAccess();
         List<PermissionSetAssignment> toDelete = [
             SELECT Id FROM PermissionSetAssignment
             WHERE Id = :assignmentId
@@ -244,13 +260,87 @@ public with sharing class SetupController {
         }
     }
 
-    public class UserInfo {
+    private static void ensureSettingsReadAccess() {
+        if (!Schema.sObjectType.WITU_Settings__c.isAccessible() ||
+            !Schema.sObjectType.WITU_Settings__c.fields.Use_Named_Credential__c.isAccessible()) {
+            throw new AuraHandledException('Insufficient access to read WITU settings.');
+        }
+    }
+
+    private static void ensureSettingsWriteAccess() {
+        if (!Schema.sObjectType.WITU_Settings__c.isCreateable() &&
+            !Schema.sObjectType.WITU_Settings__c.isUpdateable()) {
+            throw new AuraHandledException('Insufficient access to update WITU settings.');
+        }
+        if (!Schema.sObjectType.WITU_Settings__c.fields.Use_Named_Credential__c.isUpdateable()) {
+            throw new AuraHandledException('Insufficient field access to update auth mode.');
+        }
+    }
+
+    private static void ensureUserReadAccess() {
+        if (!Schema.sObjectType.User.isAccessible()) {
+            throw new AuraHandledException('Insufficient access to read users.');
+        }
+        if (!Schema.sObjectType.User.fields.Id.isAccessible() ||
+            !Schema.sObjectType.User.fields.Name.isAccessible() ||
+            !Schema.sObjectType.User.fields.Username.isAccessible() ||
+            !Schema.sObjectType.User.fields.Email.isAccessible() ||
+            !Schema.sObjectType.User.fields.IsActive.isAccessible()) {
+            throw new AuraHandledException('Insufficient field access to query users.');
+        }
+    }
+
+    private static void ensurePermissionSetReadAccess() {
+        if (!Schema.sObjectType.PermissionSet.isAccessible() ||
+            !Schema.sObjectType.PermissionSet.fields.Id.isAccessible() ||
+            !Schema.sObjectType.PermissionSet.fields.Name.isAccessible()) {
+            throw new AuraHandledException('Insufficient access to read permission sets.');
+        }
+    }
+
+    private static void ensurePermissionSetAssignmentReadAccess() {
+        if (!Schema.sObjectType.PermissionSetAssignment.isAccessible() ||
+            !Schema.sObjectType.PermissionSetAssignment.fields.AssigneeId.isAccessible() ||
+            !Schema.sObjectType.PermissionSetAssignment.fields.PermissionSetId.isAccessible()) {
+            throw new AuraHandledException('Insufficient access to read permission set assignments.');
+        }
+    }
+
+    private static void ensurePermissionSetAssignmentCreateAccess() {
+        if (!Schema.sObjectType.PermissionSetAssignment.isCreateable() ||
+            !Schema.sObjectType.PermissionSetAssignment.fields.AssigneeId.isCreateable() ||
+            !Schema.sObjectType.PermissionSetAssignment.fields.PermissionSetId.isCreateable()) {
+            throw new AuraHandledException('Insufficient access to assign permission sets.');
+        }
+    }
+
+    private static void ensurePermissionSetAssignmentListAccess() {
+        if (!Schema.sObjectType.PermissionSetAssignment.isAccessible() ||
+            !Schema.sObjectType.PermissionSetAssignment.fields.Id.isAccessible() ||
+            !Schema.sObjectType.User.fields.Name.isAccessible() ||
+            !Schema.sObjectType.User.fields.Username.isAccessible() ||
+            !Schema.sObjectType.PermissionSet.fields.Name.isAccessible() ||
+            !Schema.sObjectType.PermissionSet.fields.Label.isAccessible()) {
+            throw new AuraHandledException('Insufficient access to list permission set assignments.');
+        }
+    }
+
+    private static void ensurePermissionSetAssignmentDeleteAccess() {
+        if (!Schema.sObjectType.PermissionSetAssignment.isAccessible() ||
+            !Schema.sObjectType.PermissionSetAssignment.fields.Id.isAccessible() ||
+            !Schema.sObjectType.PermissionSetAssignment.isDeletable() ||
+            !Schema.sObjectType.PermissionSet.fields.Name.isAccessible()) {
+            throw new AuraHandledException('Insufficient access to remove permission set assignments.');
+        }
+    }
+
+    public class UserSummary {
         @AuraEnabled public Id id;
         @AuraEnabled public String name;
         @AuraEnabled public String username;
         @AuraEnabled public String email;
 
-        public UserInfo(User u) {
+        public UserSummary(User u) {
             this.id = u.Id;
             this.name = u.Name;
             this.username = u.Username;

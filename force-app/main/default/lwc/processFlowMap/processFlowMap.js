@@ -2,6 +2,7 @@ import { LightningElement, track } from 'lwc';
 import getObjects from '@salesforce/apex/MetadataPickerController.getObjects';
 import getProcessFlow from '@salesforce/apex/ProcessFlowController.getProcessFlow';
 import { loadD3 } from 'c/d3Loader';
+import { PROCESS_STEP_ICONS, PROCESS_STEP_COLORS } from 'c/wituConstants';
 
 const CONTEXT_OPTIONS = [
     { label: 'Insert', value: 'Insert' },
@@ -9,34 +10,6 @@ const CONTEXT_OPTIONS = [
     { label: 'Delete', value: 'Delete' },
     { label: 'All', value: 'All' }
 ];
-
-const ICON_BY_TYPE = {
-    BeforeTrigger: 'custom:custom24',
-    AfterTrigger: 'custom:custom24',
-    ValidationRule: 'utility:warning',
-    Flow_BeforeSave: 'standard:flow',
-    Flow_AfterSave: 'standard:flow',
-    Flow_Async: 'utility:clock',
-    WorkflowRule: 'utility:workflow',
-    WorkflowFieldUpdate: 'utility:change_record_type',
-    AssignmentRule: 'utility:user_role',
-    AutoResponseRule: 'utility:email',
-    EntitlementRule: 'utility:task'
-};
-
-const COLOR_BY_TYPE = {
-    BeforeTrigger: '#9050E9',
-    AfterTrigger: '#9050E9',
-    ValidationRule: '#FE5C4C',
-    Flow_BeforeSave: '#1B96FF',
-    Flow_AfterSave: '#1B96FF',
-    Flow_Async: '#1B96FF',
-    WorkflowRule: '#FE9339',
-    WorkflowFieldUpdate: '#FE9339',
-    AssignmentRule: '#6DB9EF',
-    AutoResponseRule: '#6DB9EF',
-    EntitlementRule: '#6DB9EF'
-};
 
 const PHASE_COLORS = [
     'rgba(1, 118, 211, 0.06)',
@@ -134,7 +107,7 @@ export default class ProcessFlowMap extends LightningElement {
                 steps: (phase.steps || []).map((step, index) => ({
                     ...step,
                     key: `${phaseKey}_${step.id || step.name || index}`,
-                    iconName: ICON_BY_TYPE[step.automationType] || 'standard:default',
+                    iconName: PROCESS_STEP_ICONS[step.automationType] || 'standard:default',
                     stateLabel: step.isActive ? 'Active' : 'Inactive',
                     stateClass: step.isActive
                         ? 'slds-badge slds-theme_success step-state-badge'
@@ -262,7 +235,7 @@ export default class ProcessFlowMap extends LightningElement {
     handleOpenSetup(event) {
         const url = event.currentTarget.dataset.url;
         if (url) {
-            window.open(url, '_blank');
+            window.open(url, '_blank', 'noopener,noreferrer');
         }
     }
 
@@ -465,7 +438,7 @@ export default class ProcessFlowMap extends LightningElement {
 
         steps.forEach((step, i) => {
             const cx = xScale(i);
-            const dotColor = COLOR_BY_TYPE[step.automationType] || '#9aa1a9';
+            const dotColor = PROCESS_STEP_COLORS[step.automationType] || '#9aa1a9';
 
             dotGroup.append('circle')
                 .attr('cx', cx)

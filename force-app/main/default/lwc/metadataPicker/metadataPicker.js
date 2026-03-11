@@ -146,6 +146,13 @@ export default class MetadataPicker extends LightningElement {
         this.loadRecentSearches();
     }
 
+    disconnectedCallback() {
+        if (this._searchTimeout !== null) {
+            window.clearTimeout(this._searchTimeout);
+            this._searchTimeout = null;
+        }
+    }
+
     loadRecentSearches() {
         try {
             const stored = window.localStorage.getItem("witu_recent_searches");
@@ -465,4 +472,3 @@ export default class MetadataPicker extends LightningElement {
         }
     }
 }
-

@@ -13,7 +13,10 @@ export function loadD3(component) {
     if (!d3Promise) {
         d3Promise = loadScript(component, D3_RESOURCE + '/d3.min.js').then(
             () => window.d3
-        );
+        ).catch((error) => {
+            d3Promise = null;
+            throw error;
+        });
     }
     return d3Promise;
 }
@@ -28,7 +31,10 @@ export function loadD3Sankey(component) {
             loadScript(component, D3_RESOURCE + '/d3-sankey.min.js').then(
                 () => window.d3Sankey
             )
-        );
+        ).catch((error) => {
+            d3SankeyPromise = null;
+            throw error;
+        });
     }
     return d3SankeyPromise;
 }
