@@ -106,16 +106,17 @@ export default class SearchableCombobox extends LightningElement {
 
     connectedCallback() {
         this._documentClickHandler = (event) => {
-            if (!event.composedPath().includes(this.template.host)) {
+            if (!this.template.host.contains(event.target)) {
                 this.closeDropdown();
             }
         };
-        document.addEventListener("click", this._documentClickHandler);
+        // Use mousedown so it fires before focus, avoiding open-then-close race
+        document.addEventListener("mousedown", this._documentClickHandler);
     }
 
     disconnectedCallback() {
         if (this._documentClickHandler) {
-            document.removeEventListener("click", this._documentClickHandler);
+            document.removeEventListener("mousedown", this._documentClickHandler);
         }
     }
 

@@ -9,9 +9,16 @@
     color: var(--slds-g-color-neutral-base-30, #444);
 }
 
+.slds-combobox {
+    position: relative;
+}
+
 .slds-dropdown {
     max-height: 15rem;
     overflow-y: auto;
+    width: 100%;
+    min-width: 100%;
+    left: 0;
 }
 
 .no-results {
