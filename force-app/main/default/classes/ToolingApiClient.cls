@@ -14,6 +14,9 @@ public with sharing class ToolingApiClient {
     @TestVisible
     private static Boolean useNamedCredential;
 
+    @TestVisible
+    private static String mockSessionId;
+
     public static Boolean isNamedCredentialMode() {
         if (useNamedCredential != null) return useNamedCredential;
         WITU_Settings__c settings = WITU_Settings__c.getInstance();
@@ -118,7 +121,7 @@ public with sharing class ToolingApiClient {
             request.setTimeout(HTTP_TIMEOUT_MS);
             request.setEndpoint(resolveEndpoint(path));
             if (!isNamedCredentialMode()) {
-                request.setHeader('Authorization', 'Bearer ' + System.UserInfo.getSessionId());
+                request.setHeader('Authorization', 'Bearer ' + getSessionId());
             }
 
             response = new Http().send(request);
@@ -160,6 +163,47 @@ public with sharing class ToolingApiClient {
         if (remaining <= 0) {
             throw new ToolingApiClientException('Callout limit reached for this transaction.');
         }
+    }
+
+    /**
+     * Obtain a valid session ID. UserInfo.getSessionId() returns null in
+     * Lightning / @AuraEnabled context, so we fall back to a lightweight
+     * Visualforce page that exposes {!$Api.Session_ID}.
+     */
+    @TestVisible
+    private static String cachedSessionId;
+
+    @TestVisible
+    public static String getSessionId() {
+        if (Test.isRunningTest() && mockSessionId != null) {
+            return mockSessionId;
+        }
+
+        if (String.isNotBlank(cachedSessionId)) {
+            return cachedSessionId;
+        }
+
+        // UserInfo.getSessionId() returns null or a restricted session in
+        // Lightning / @AuraEnabled context, so prefer the VF page approach
+        // which always returns a full API-enabled session ID.
+        try {
+            String content = Page.WITU_SessionBridge.getContent().toString().trim();
+            if (String.isNotBlank(content)) {
+                cachedSessionId = content;
+                return cachedSessionId;
+            }
+        } catch (Exception ex) {
+            System.debug(LoggingLevel.WARN, 'VF session bridge failed: ' + ex.getMessage());
+        }
+
+        // Fall back to UserInfo (works in non-Lightning contexts)
+        String sid = System.UserInfo.getSessionId();
+        if (String.isNotBlank(sid)) {
+            cachedSessionId = sid;
+            return cachedSessionId;
+        }
+
+        return null;
     }
 
     public static Map<String, Object> asMap(Object value) {
@@ -357,7 +401,7 @@ public with sharing class ToolingApiClient {
      */
     private static ToolingQueryResponse queryFlowSObjectOnly(Integer maxRows) {
         ToolingQueryResponse flowResult = queryToolingRecords(
-            'SELECT Id, MasterLabel, ProcessType, Status FROM Flow WHERE Status = \'Active\'',
+            'SELECT Id, FullName, MasterLabel, ProcessType, Status FROM Flow WHERE Status = \'Active\'',
             maxRows
         );
 
@@ -371,12 +415,14 @@ public with sharing class ToolingApiClient {
             if (row == null) continue;
             String flowId = row.get('Id') == null ? null : String.valueOf(row.get('Id'));
             String masterLabel = row.get('MasterLabel') == null ? null : String.valueOf(row.get('MasterLabel'));
+            String fullName = row.get('FullName') == null ? null : String.valueOf(row.get('FullName'));
+            String apiName = String.isNotBlank(fullName) ? fullName : masterLabel;
             if (String.isBlank(flowId)) continue;
 
             Map<String, Object> shapedRecord = new Map<String, Object>{
                 'Id' => flowId,
                 'FlowDefinitionView' => new Map<String, Object>{
-                    'ApiName' => masterLabel,
+                    'ApiName' => apiName,
                     'Label' => masterLabel
                 }
             };

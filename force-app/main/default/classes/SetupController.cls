@@ -107,7 +107,7 @@ public with sharing class SetupController {
         }
 
         String baseUrl = URL.getOrgDomainUrl().toExternalForm();
-        String sessionId = System.UserInfo.getSessionId();
+        String sessionId = ToolingApiClient.getSessionId();
         Map<String, String> result = new Map<String, String>();
 
         // Step 1: Create External Credential via Tooling API

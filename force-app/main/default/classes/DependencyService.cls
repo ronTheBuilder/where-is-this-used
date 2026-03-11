@@ -67,6 +67,17 @@ public with sharing class DependencyService {
             throw new DependencyServiceException('Metadata type and component name are required.');
         }
 
+        // Formula Field: parse formula and show field dependencies
+        // Handled before getRefMetadataType() since Formula Field has no refType mapping
+        if (metadataType == 'Formula Field') {
+            try {
+                ToolingApiClient.validateComponentName(componentName);
+            } catch (ToolingApiClient.ToolingApiClientException ex) {
+                throw new DependencyServiceException(ex.getMessage());
+            }
+            return searchFormulaFieldDependencies(metadataType, componentName.trim());
+        }
+
         String refType = getRefMetadataType(metadataType);
         if (refType == null) {
             throw new DependencyServiceException('This metadata type is not yet supported.');
@@ -84,12 +95,13 @@ public with sharing class DependencyService {
             return searchValidationRuleDependencies(metadataType, trimmedName, refType);
         }
 
-        // Formula Field: parse formula and show field dependencies
-        if (metadataType == 'Formula Field') {
-            return searchFormulaFieldDependencies(metadataType, trimmedName);
+        // Strip object prefix for field types — Tooling API stores RefMetadataComponentName
+        // as just the field API name (e.g. "My_Field__c"), not "Object.My_Field__c"
+        String queryName = trimmedName;
+        if ((metadataType == 'Standard Field' || metadataType == 'Custom Field') && trimmedName.contains('.')) {
+            queryName = trimmedName.substringAfter('.');
         }
-
-        List<Object> filteredRecords = queryDependenciesWithFallback(refType, trimmedName);
+        List<Object> filteredRecords = queryDependenciesWithFallback(refType, queryName);
 
         // Custom Label fallback: if name-based search returns nothing, try ID-based search
         if (filteredRecords.isEmpty() && metadataType == 'Custom Label') {

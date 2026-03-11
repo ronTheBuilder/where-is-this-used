@@ -38,10 +38,14 @@ sf project deploy start -d force-app --dry-run --test-level RunLocalTests
 
 ### Core Data Flow
 ```
-LWC UI → Apex @AuraEnabled Controller → Service Layer → Tooling API (via Named Credential)
+LWC UI → Apex @AuraEnabled Controller → Service Layer → ToolingApiClient → Tooling API REST
 ```
 
-All Tooling API access goes through a single Named Credential: `callout:WITU_ToolingAPI`. The API endpoint base path is `/services/data/v66.0/tooling`.
+**Dual auth mode** (controlled by `WITU_Settings__c.Use_Named_Credential__c` custom hierarchy setting):
+- **Named Credential mode** (`true`): routes through `callout:WITU_ToolingAPI` — requires External Credential setup
+- **Session-based mode** (`false`/default): uses `WITU_SessionBridge` VF page to obtain a full API session ID (works in Lightning where `UserInfo.getSessionId()` returns null), falls back to `UserInfo.getSessionId()` in non-Lightning contexts
+
+The API endpoint base path is `/services/data/v66.0/tooling` (defined in `ToolingApiClient.TOOLING_BASE_PATH`).
 
 ### Feature Modules
 
@@ -55,7 +59,7 @@ The app has four distinct features, each following the same Controller → Servi
 | **Process Flow Map** | `ProcessFlowController` | `ProcessFlowService` | `processFlowMap` | Shows automation execution order for an object |
 
 Supporting classes:
-- `ToolingApiClient` — Centralized Tooling API access. All services call `ToolingApiClient.queryToolingRecords()`, `sendGet()`, `resolveEndpoint()`, etc. Contains multi-level query fallback logic for both `FlowVersionView` and `MetadataComponentDependency`.
+- `ToolingApiClient` — Centralized Tooling API access with dual auth (Named Credential or session-based). All services call `ToolingApiClient.queryToolingRecords()`, `sendGet()`, `resolveEndpoint()`, etc. Contains multi-level query fallback logic for both `FlowVersionView` and `MetadataComponentDependency`.
 - `FlowFieldAnalyzer` — Parses Flow metadata JSON to extract field reads, writes, and subflow calls. Used by `DataJourneyService` and `DependencyService`.
 - `MetadataPickerController` — Powers object/field/flow/class picker dropdowns. Uses `Schema.getGlobalDescribe()` for objects/fields, delegates to `DependencyService` for flows and Apex classes.
 - `SetupUrlResolver` — Generates Salesforce Setup URLs for metadata components found in results.
@@ -102,6 +106,7 @@ Supporting classes:
 - Use `@AuraEnabled(cacheable=true)` for read-only methods
 - Follow SLDS design patterns
 - SVG in LWC requires `lwc:dom="manual"` — cannot use template binding for SVG elements
+- **`manifest/package.xml` must stay in sync** — whenever a metadata file is added or deleted (Apex class, LWC, permission set, custom object, etc.), update `manifest/package.xml` to include or remove the corresponding `<members>` entry under the appropriate `<types>` block
 
 ## Key Documents
 

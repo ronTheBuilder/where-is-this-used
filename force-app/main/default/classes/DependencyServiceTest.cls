@@ -129,7 +129,7 @@ private with sharing class DependencyServiceTest {
                 return JSON.serialize(payload);
             }
 
-            if (soql.contains('FROM MetadataComponentDependency') && soql.contains('Account.MyField__c')) {
+            if (soql.contains('FROM MetadataComponentDependency') && soql.contains('MyField__c')) {
                 return '{"done":true,"totalSize":2,"records":[' +
                     '{"MetadataComponentId":"01pA","MetadataComponentName":"UsageClass","MetadataComponentType":"ApexClass","MetadataComponentNamespace":null},' +
                     '{"MetadataComponentId":"301A","MetadataComponentName":"FieldFlow","MetadataComponentType":"Flow","MetadataComponentNamespace":null}' +

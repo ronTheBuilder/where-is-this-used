@@ -375,6 +375,19 @@ private with sharing class ToolingApiClientTest {
         }
     }
 
+    @IsTest
+    static void getSessionId_returnsMockValue() {
+        ToolingApiClient.bypassAccessCheckForTests = true;
+        ToolingApiClient.mockSessionId = 'FAKE_SESSION_123';
+
+        Test.startTest();
+        String sid = ToolingApiClient.getSessionId();
+        Test.stopTest();
+
+        System.assertEquals('FAKE_SESSION_123', sid);
+        ToolingApiClient.mockSessionId = null;
+    }
+
     private class FlowVersionViewNotSupportedMock implements HttpCalloutMock {
         public HttpResponse respond(HttpRequest req) {
             HttpResponse response = new HttpResponse();
