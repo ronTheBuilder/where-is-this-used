@@ -20,6 +20,14 @@ export default class DependencyFinder extends LightningElement {
         return this.activeTab === 'blastRadius';
     }
 
+    get isDataJourneyTab() {
+        return this.activeTab === 'dataJourney';
+    }
+
+    get isProcessFlowTab() {
+        return this.activeTab === 'processFlow';
+    }
+
     get hasResults() {
         return this.searchResponse != null;
     }
@@ -36,6 +44,14 @@ export default class DependencyFinder extends LightningElement {
         return 'slds-tabs_default__item' + (this.isBlastRadiusTab ? ' slds-is-active' : '');
     }
 
+    get dataJourneyTabClass() {
+        return 'slds-tabs_default__item' + (this.isDataJourneyTab ? ' slds-is-active' : '');
+    }
+
+    get processFlowTabClass() {
+        return 'slds-tabs_default__item' + (this.isProcessFlowTab ? ' slds-is-active' : '');
+    }
+
     get hasBlastContext() {
         return !!this.blastMetadataType && !!this.blastComponentName;
     }
@@ -50,6 +66,14 @@ export default class DependencyFinder extends LightningElement {
 
     get blastRadiusTabSelected() {
         return this.isBlastRadiusTab ? 'true' : 'false';
+    }
+
+    get dataJourneyTabSelected() {
+        return this.isDataJourneyTab ? 'true' : 'false';
+    }
+
+    get processFlowTabSelected() {
+        return this.isProcessFlowTab ? 'true' : 'false';
     }
 
     handleTabClick(event) {

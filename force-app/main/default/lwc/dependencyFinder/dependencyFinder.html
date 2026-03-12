@@ -22,6 +22,16 @@
                         Blast Radius
                     </a>
                 </li>
+                <li class={dataJourneyTabClass} role="presentation">
+                    <a class="slds-tabs_default__link" role="tab" tabindex="0" aria-selected={dataJourneyTabSelected} data-tab="dataJourney" onclick={handleTabClick}>
+                        Data Journey
+                    </a>
+                </li>
+                <li class={processFlowTabClass} role="presentation">
+                    <a class="slds-tabs_default__link" role="tab" tabindex="0" aria-selected={processFlowTabSelected} data-tab="processFlow" onclick={handleTabClick}>
+                        Process Flow
+                    </a>
+                </li>
             </ul>
 
             <!-- Finder tab -->
@@ -95,6 +105,20 @@
                             Search dependencies first, then click Show Blast Radius.
                         </div>
                     </template>
+                </div>
+            </template>
+
+            <!-- Data Journey tab -->
+            <template if:true={isDataJourneyTab}>
+                <div class="slds-tabs_default__content slds-show" role="tabpanel">
+                    <c-data-journey-view></c-data-journey-view>
+                </div>
+            </template>
+
+            <!-- Process Flow tab -->
+            <template if:true={isProcessFlowTab}>
+                <div class="slds-tabs_default__content slds-show" role="tabpanel">
+                    <c-process-flow-map></c-process-flow-map>
                 </div>
             </template>
         </div>
