@@ -280,9 +280,14 @@ public with sharing class ToolingApiClient {
             relFields += ', ' + additionalFields;
         }
 
-        String soql = 'SELECT ' + relFields + ' FROM FlowVersionView WHERE ' + whereClause;
+        String whereFragment = String.isBlank(whereClause) ? '' : ' WHERE ' + whereClause;
+        String soql = 'SELECT ' + relFields + ' FROM FlowVersionView' + whereFragment;
         try {
-            return queryToolingRecords(soql, maxRows);
+            ToolingQueryResponse result = queryToolingRecords(soql, maxRows);
+            if (!result.records.isEmpty()) {
+                return result;
+            }
+            System.debug(LoggingLevel.WARN, 'FlowVersionView relationship query returned 0 rows; trying broader fallback queries.');
         } catch (ToolingApiClientException ex) {
             if (!isQueryError(ex)) {
                 throw ex;
@@ -295,11 +300,14 @@ public with sharing class ToolingApiClient {
             fallbackFields += ', ' + additionalFields;
         }
 
-        String fallbackSoql = 'SELECT ' + fallbackFields + ' FROM FlowVersionView WHERE ' + whereClause;
+        String fallbackSoql = 'SELECT ' + fallbackFields + ' FROM FlowVersionView' + whereFragment;
         try {
             ToolingQueryResponse result = queryToolingRecords(fallbackSoql, maxRows);
             enrichWithFlowDefinitionView(result, maxRows);
-            return result;
+            if (!result.records.isEmpty()) {
+                return result;
+            }
+            System.debug(LoggingLevel.WARN, 'FlowVersionView enrichment fallback returned 0 rows; trying FlowDefinition fallbacks.');
         } catch (ToolingApiClientException ex) {
             if (!isQueryError(ex)) {
                 throw ex;
@@ -308,14 +316,30 @@ public with sharing class ToolingApiClient {
 
         // Level 3: FlowDefinitionView only (FlowVersionView not available on this org)
         try {
-            return queryFlowDefinitionViewOnly(maxRows);
+            ToolingQueryResponse result = queryFlowDefinitionViewOnly(maxRows);
+            if (!result.records.isEmpty()) {
+                return result;
+            }
+            System.debug(LoggingLevel.WARN, 'FlowDefinitionView fallback returned 0 rows; trying FlowDefinition.');
         } catch (ToolingApiClientException ex) {
             if (!isQueryError(ex)) {
                 throw ex;
             }
         }
 
-        // Level 4: Flow sObject directly (FlowDefinitionView also not available)
+        // Level 4: FlowDefinition (handles orgs where FlowVersionView filters miss managed-installed flows)
+        try {
+            ToolingQueryResponse result = queryFlowDefinitionOnly(maxRows);
+            if (!result.records.isEmpty()) {
+                return result;
+            }
+        } catch (ToolingApiClientException ex) {
+            if (!isQueryError(ex)) {
+                throw ex;
+            }
+        }
+
+        // Level 5: Flow sObject directly (last resort)
         return queryFlowSObjectOnly(maxRows);
     }
 
@@ -380,9 +404,48 @@ public with sharing class ToolingApiClient {
 
             Map<String, Object> shapedRecord = new Map<String, Object>{
                 'Id' => activeVersionId,
+                'Status' => 'Active',
                 'FlowDefinitionView' => new Map<String, Object>{
                     'ApiName' => apiName,
                     'Label' => row.get('Label') == null ? null : String.valueOf(row.get('Label')),
+                    'NamespacePrefix' => row.get('NamespacePrefix') == null ? null : String.valueOf(row.get('NamespacePrefix'))
+                }
+            };
+            shaped.records.add(shapedRecord);
+        }
+
+        return shaped;
+    }
+
+    /**
+     * Fallback for orgs where FlowVersionView filters exclude managed-installed flows.
+     * Uses FlowDefinition active versions and shapes records like FlowVersionView.
+     */
+    private static ToolingQueryResponse queryFlowDefinitionOnly(Integer maxRows) {
+        ToolingQueryResponse defResult = queryToolingRecords(
+            'SELECT Id, DeveloperName, NamespacePrefix, ActiveVersionId FROM FlowDefinition WHERE ActiveVersionId != null',
+            maxRows
+        );
+
+        ToolingQueryResponse shaped = new ToolingQueryResponse();
+        shaped.done = defResult.done;
+        shaped.totalSize = defResult.totalSize;
+        shaped.limitReached = defResult.limitReached;
+
+        for (Object rec : defResult.records) {
+            Map<String, Object> row = asMap(rec);
+            if (row == null) continue;
+
+            String activeVersionId = row.get('ActiveVersionId') == null ? null : String.valueOf(row.get('ActiveVersionId'));
+            String developerName = row.get('DeveloperName') == null ? null : String.valueOf(row.get('DeveloperName'));
+            if (String.isBlank(activeVersionId) || String.isBlank(developerName)) continue;
+
+            Map<String, Object> shapedRecord = new Map<String, Object>{
+                'Id' => activeVersionId,
+                'Status' => 'Active',
+                'FlowDefinitionView' => new Map<String, Object>{
+                    'ApiName' => developerName,
+                    'Label' => developerName,
                     'NamespacePrefix' => row.get('NamespacePrefix') == null ? null : String.valueOf(row.get('NamespacePrefix'))
                 }
             };
@@ -445,7 +508,7 @@ public with sharing class ToolingApiClient {
      * Check if an exception is a query-related error that should trigger a fallback.
      */
     private static Boolean isQueryError(ToolingApiClientException ex) {
-        String msg = ex.getMessage();
+        String msg = ex == null || ex.getMessage() == null ? '' : ex.getMessage().toLowerCase();
         return msg.contains('invalid') || msg.contains('400') || msg.contains('not found') || msg.contains('not supported');
     }
 

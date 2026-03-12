@@ -73,7 +73,7 @@ public with sharing class MetadataPickerController {
         return options;
     }
 
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled
     public static List<DependencyService.MetadataOption> getFlows() {
         try {
             return DependencyService.getActiveFlows();
@@ -107,7 +107,7 @@ public with sharing class MetadataPickerController {
         }
     }
 
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled
     public static List<DependencyService.MetadataOption> getAllFlows() {
         try {
             return DependencyService.getAllFlows();

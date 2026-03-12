@@ -245,6 +245,26 @@ private with sharing class ToolingApiClientTest {
         System.assertEquals('My_Flow', String.valueOf(flowDef.get('ApiName')));
     }
 
+    @IsTest
+    static void queryFlowVersionsWithFallback_usesFlowDefinitionWhenEarlierLevelsEmpty() {
+        ToolingApiClient.bypassAccessCheckForTests = true;
+        Test.setMock(HttpCalloutMock.class, new EmptyFlowVersionThenFlowDefinitionMock());
+
+        Test.startTest();
+        ToolingApiClient.ToolingQueryResponse result = ToolingApiClient.queryFlowVersionsWithFallback(
+            null, 'Status = \'Active\'', 2000
+        );
+        Test.stopTest();
+
+        System.assertEquals(1, result.records.size());
+        Map<String, Object> record = ToolingApiClient.asMap(result.records[0]);
+        System.assertEquals('301MNG', String.valueOf(record.get('Id')));
+        Map<String, Object> flowDef = ToolingApiClient.asMap(record.get('FlowDefinitionView'));
+        System.assertNotEquals(null, flowDef);
+        System.assertEquals('ManagedFlow', String.valueOf(flowDef.get('ApiName')));
+        System.assertEquals('pkg', String.valueOf(flowDef.get('NamespacePrefix')));
+    }
+
     private class QueryPaginationMock implements HttpCalloutMock {
         public HttpResponse respond(HttpRequest req) {
             HttpResponse response = new HttpResponse();
@@ -411,6 +431,43 @@ private with sharing class ToolingApiClientTest {
                 response.setStatusCode(200);
                 response.setBody('{"done":true,"totalSize":1,"records":[' +
                     '{"ApiName":"My_Flow","Label":"My Flow","ActiveVersionId":"301ACTIVE"}' +
+                ']}');
+                return response;
+            }
+
+            response.setStatusCode(200);
+            response.setBody('{"done":true,"totalSize":0,"records":[]}');
+            return response;
+        }
+    }
+
+    private class EmptyFlowVersionThenFlowDefinitionMock implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest req) {
+            HttpResponse response = new HttpResponse();
+            response.setHeader('Content-Type', 'application/json');
+
+            String endpoint = req.getEndpoint();
+            String soql = '';
+            if (endpoint.contains('?q=')) {
+                soql = EncodingUtil.urlDecode(endpoint.substring(endpoint.indexOf('?q=') + 3), 'UTF-8');
+            }
+
+            if (soql.contains('FROM FlowVersionView')) {
+                response.setStatusCode(200);
+                response.setBody('{"done":true,"totalSize":0,"records":[]}');
+                return response;
+            }
+
+            if (soql.contains('FROM FlowDefinitionView')) {
+                response.setStatusCode(200);
+                response.setBody('{"done":true,"totalSize":0,"records":[]}');
+                return response;
+            }
+
+            if (soql.contains('FROM FlowDefinition')) {
+                response.setStatusCode(200);
+                response.setBody('{"done":true,"totalSize":1,"records":[' +
+                    '{"Id":"300FD","DeveloperName":"ManagedFlow","NamespacePrefix":"pkg","ActiveVersionId":"301MNG"}' +
                 ']}');
                 return response;
             }

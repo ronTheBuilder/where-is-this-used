@@ -128,7 +128,7 @@ public with sharing class DependencyService {
                 flattened.addAll(findFlexiPagesUsingField(trimmedName));
             } catch (Exception ex) {
                 // Non-fatal: layout/flexipage scan is supplementary
-                System.debug(LoggingLevel.WARN, 'Layout/FlexiPage scan failed: ' + ex.getMessage());
+                System.debug(LoggingLevel.ERROR, 'Layout/FlexiPage scan failed: ' + ex.getMessage() + ' | Stack: ' + ex.getStackTraceString());
             }
         }
 
@@ -724,7 +724,7 @@ public with sharing class DependencyService {
         String objectName = objectDotField.substringBefore('.');
         String fieldName = objectDotField.substringAfter('.');
 
-        String soql = 'SELECT Id, Name, FullName FROM Layout WHERE TableEnumOrId = \'' +
+        String soql = 'SELECT Id, Name FROM Layout WHERE TableEnumOrId = \'' +
             String.escapeSingleQuotes(objectName) + '\'';
 
         ToolingApiClient.ToolingQueryResponse layoutResult;
