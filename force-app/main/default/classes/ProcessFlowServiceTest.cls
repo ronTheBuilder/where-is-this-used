@@ -161,8 +161,12 @@ private with sharing class ProcessFlowServiceTest {
                 return '{"done":true,"totalSize":1,"records":[{"Id":"01qA","Name":"AccountTrigger","TableEnumOrId":"Account","UsageBeforeInsert":true,"UsageAfterInsert":true,"UsageBeforeUpdate":true,"UsageAfterUpdate":true,"UsageBeforeDelete":true,"UsageAfterDelete":true,"UsageAfterUndelete":false,"Status":"Active"}]}';
             }
 
+            if (soql.contains('FROM ValidationRule') && soql.contains('Metadata')) {
+                return '{"done":true,"totalSize":1,"records":[{"Id":"03dA","Metadata":{"errorConditionFormula":"ISBLANK(Industry)"}}]}';
+            }
+
             if (soql.contains('FROM ValidationRule')) {
-                return '{"done":true,"totalSize":1,"records":[{"Id":"03dA","ValidationName":"Require_Industry","Active":true,"ErrorConditionFormula":"ISBLANK(Industry)","EntityDefinition":{"QualifiedApiName":"Account"}}]}';
+                return '{"done":true,"totalSize":1,"records":[{"Id":"03dA","ValidationName":"Require_Industry","Active":true,"EntityDefinition":{"QualifiedApiName":"Account"}}]}';
             }
 
             if (soql.contains('FROM FlowVersionView')) {

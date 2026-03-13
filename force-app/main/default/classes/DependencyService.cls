@@ -120,14 +120,19 @@ public with sharing class DependencyService {
             flattened.addAll(findSubflowUsages(componentName));
         }
 
-        // Supplementary scan: Layouts & FlexiPages for field types
-        // (MetadataComponentDependency doesn't track Layout→Field relationships)
+        // Supplementary scans for field types: Layouts, FlexiPages, and Flows.
+        // MetadataComponentDependency doesn't track Layout→Field or Flow→Field relationships
+        // (standard fields are not indexed at all by the Dependency API).
         if (metadataType == 'Standard Field' || metadataType == 'Custom Field') {
             try {
                 flattened.addAll(findSupplementaryDependencies(trimmedName));
             } catch (Exception ex) {
-                // Non-fatal: layout/flexipage scan is supplementary
                 System.debug(LoggingLevel.ERROR, 'Layout/FlexiPage scan failed: ' + ex.getMessage() + ' | Stack: ' + ex.getStackTraceString());
+            }
+            try {
+                flattened.addAll(findFlowFieldDependencies(trimmedName));
+            } catch (Exception ex) {
+                System.debug(LoggingLevel.ERROR, 'Flow field scan failed: ' + ex.getMessage() + ' | Stack: ' + ex.getStackTraceString());
             }
         }
 
@@ -384,24 +389,50 @@ public with sharing class DependencyService {
 
     public static List<MetadataOption> getActiveFlows() {
         ToolingApiClient.enforceAccess();
-        String soql =
-            'SELECT Id, ApiName, Label, NamespacePrefix ' +
-            'FROM FlowDefinitionView WHERE IsActive = true ORDER BY Label';
-        ToolingApiClient.ToolingQueryResponse queryResponse =
-            ToolingApiClient.queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
+        ToolingApiClient.ToolingQueryResponse flowQuery = ToolingApiClient.queryFlowVersionsWithFallback(
+            null, 'Status = \'Active\'', MAX_DEPENDENCY_ROWS
+        );
+        return buildFlowOptionsFromVersionView(flowQuery.records);
+    }
 
+    public static List<MetadataOption> getAllFlows() {
+        ToolingApiClient.enforceAccess();
+
+        // FlowDefinitionView includes inactive flows; fall back to the robust
+        // multi-level chain (active flows only) when it is unavailable.
+        try {
+            String soql =
+                'SELECT Id, ApiName, Label, NamespacePrefix, IsActive ' +
+                'FROM FlowDefinitionView ORDER BY Label';
+            ToolingApiClient.ToolingQueryResponse queryResponse =
+                ToolingApiClient.queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
+            return buildFlowOptionsFromDefinitionView(queryResponse.records);
+        } catch (ToolingApiClient.ToolingApiClientException ex) {
+            System.debug(LoggingLevel.WARN, 'FlowDefinitionView query failed, falling back: ' + ex.getMessage());
+        }
+
+        ToolingApiClient.ToolingQueryResponse fallback = ToolingApiClient.queryFlowVersionsWithFallback(
+            null, 'Status = \'Active\'', MAX_DEPENDENCY_ROWS
+        );
+        return buildFlowOptionsFromVersionView(fallback.records);
+    }
+
+    /**
+     * Build MetadataOption list from FlowVersionView records (with FlowDefinitionView relationship).
+     * Used by getActiveFlows() and as fallback for getAllFlows().
+     */
+    private static List<MetadataOption> buildFlowOptionsFromVersionView(List<Object> records) {
         List<MetadataOption> options = new List<MetadataOption>();
-        for (Object recordObj : queryResponse.records) {
+        for (Object recordObj : records) {
             Map<String, Object> record = ToolingApiClient.asMap(recordObj);
             if (record == null) continue;
 
-            String apiName = asNullableString(record.get('ApiName'));
+            Map<String, Object> flowDefView = ToolingApiClient.asMap(record.get('FlowDefinitionView'));
+            String apiName = flowDefView == null ? null : asNullableString(flowDefView.get('ApiName'));
             if (String.isBlank(apiName)) continue;
 
-            String label = asNullableString(record.get('Label'));
-            String namespace = record.get('NamespacePrefix') == null
-                ? null
-                : asNullableString(record.get('NamespacePrefix'));
+            String label = flowDefView == null ? null : asNullableString(flowDefView.get('Label'));
+            String namespace = flowDefView == null ? null : asNullableString(flowDefView.get('NamespacePrefix'));
 
             String displayValue = String.isNotBlank(namespace) ? namespace + '__' + apiName : apiName;
             String displayLabel = String.isBlank(label) ? apiName : label;
@@ -414,16 +445,13 @@ public with sharing class DependencyService {
         return options;
     }
 
-    public static List<MetadataOption> getAllFlows() {
-        ToolingApiClient.enforceAccess();
-        String soql =
-            'SELECT Id, ApiName, Label, NamespacePrefix, IsActive ' +
-            'FROM FlowDefinitionView ORDER BY Label';
-        ToolingApiClient.ToolingQueryResponse queryResponse =
-            ToolingApiClient.queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
-
+    /**
+     * Build MetadataOption list from FlowDefinitionView records (direct query).
+     * Used by getAllFlows() primary path.
+     */
+    private static List<MetadataOption> buildFlowOptionsFromDefinitionView(List<Object> records) {
         List<MetadataOption> options = new List<MetadataOption>();
-        for (Object recordObj : queryResponse.records) {
+        for (Object recordObj : records) {
             Map<String, Object> record = ToolingApiClient.asMap(recordObj);
             if (record == null) continue;
 
@@ -893,6 +921,142 @@ public with sharing class DependencyService {
         return results;
     }
 
+    /**
+     * Scan active Flows for references to a specific field.
+     * Uses FlowFieldAnalyzer to parse each flow's metadata JSON and check
+     * whether fieldsRead or fieldsWritten contain the target field.
+     *
+     * @param objectDotField Full field reference (e.g. "Account.Name", "Account.My_Field__c")
+     * @return DependencyRecords for each flow that reads or writes the field
+     */
+    @TestVisible
+    private static List<DependencyRecord> findFlowFieldDependencies(String objectDotField) {
+        List<DependencyRecord> results = new List<DependencyRecord>();
+        if (String.isBlank(objectDotField) || !objectDotField.contains('.')) {
+            return results;
+        }
+
+        String objectName = objectDotField.substringBefore('.');
+        String fieldName = objectDotField.substringAfter('.');
+
+        ToolingApiClient.ToolingQueryResponse flowQuery = ToolingApiClient.queryFlowVersionsWithFallback(
+            'ProcessType', 'Status = \'Active\'', MAX_FLOW_SCAN
+        );
+
+        for (Object recordObj : flowQuery.records) {
+            if (Limits.getCallouts() >= Limits.getLimitCallouts() - 2) {
+                break;
+            }
+
+            Map<String, Object> record = ToolingApiClient.asMap(recordObj);
+            if (record == null) continue;
+
+            String flowVersionId = asNullableString(record.get('Id'));
+            if (String.isBlank(flowVersionId)) continue;
+
+            Map<String, Object> flowDefView = ToolingApiClient.asMap(record.get('FlowDefinitionView'));
+            String parentApiName = flowDefView == null ? null : asNullableString(flowDefView.get('ApiName'));
+            String parentLabel = flowDefView == null ? null : asNullableString(flowDefView.get('Label'));
+
+            Map<String, Object> flowMetadata;
+            try {
+                flowMetadata = ToolingApiClient.getFlowMetadata(flowVersionId);
+            } catch (Exception ex) {
+                System.debug(LoggingLevel.WARN, 'Skipping flow ' + parentApiName + ' for field scan: ' + ex.getMessage());
+                continue;
+            }
+
+            FlowFieldAnalyzer.FlowFieldAnalysis analysis = FlowFieldAnalyzer.analyzeFlow(flowMetadata);
+            String accessType = determineFlowFieldAccessType(analysis, objectName, fieldName, objectDotField);
+            if (accessType == null) continue;
+
+            DependencyRecord dep = new DependencyRecord();
+            dep.metadataComponentId = flowVersionId;
+            dep.metadataComponentName = String.isBlank(parentLabel) ? parentApiName : parentLabel;
+            dep.metadataComponentType = 'Flow';
+            dep.metadataComponentNamespace = null;
+            dep.refMetadataComponentName = objectDotField;
+            dep.refMetadataComponentType = 'Field';
+            dep.accessType = accessType;
+            dep.setupUrl = SetupUrlResolver.resolve('Flow', flowVersionId, parentApiName);
+            dep.isSubflowReference = false;
+            results.add(dep);
+        }
+
+        return results;
+    }
+
+    /**
+     * Determines how a flow accesses a field: Read, Write, Read/Write, or null (no match).
+     */
+    private static String determineFlowFieldAccessType(
+        FlowFieldAnalyzer.FlowFieldAnalysis analysis,
+        String objectName,
+        String fieldName,
+        String fullFieldName
+    ) {
+        if (analysis == null) {
+            return null;
+        }
+
+        Boolean reads = false;
+        Boolean writes = false;
+
+        for (String ref : analysis.fieldsRead) {
+            if (flowFieldReferenceMatches(ref, fieldName, fullFieldName)) {
+                reads = true;
+                break;
+            }
+        }
+        for (String ref : analysis.fieldsWritten) {
+            if (flowFieldReferenceMatches(ref, fieldName, fullFieldName)) {
+                writes = true;
+                break;
+            }
+        }
+
+        if (reads && writes) {
+            return 'Read/Write';
+        }
+        if (reads) {
+            return 'Read';
+        }
+        if (writes) {
+            return 'Write';
+        }
+        return null;
+    }
+
+    /**
+     * Checks whether a flow field reference token matches the target field.
+     * Handles patterns like: Account.Name, $Record.Name, record.Name, SomeVar.Name
+     */
+    private static Boolean flowFieldReferenceMatches(
+        String reference,
+        String fieldName,
+        String fullFieldName
+    ) {
+        if (String.isBlank(reference)) {
+            return false;
+        }
+
+        String lower = reference.toLowerCase().trim();
+        String targetFull = fullFieldName.toLowerCase();
+        String targetField = fieldName.toLowerCase();
+
+        if (lower == targetFull) {
+            return true;
+        }
+        if (lower == '$record.' + targetField || lower == 'record.' + targetField) {
+            return true;
+        }
+        if (lower.endsWith('.' + targetField)) {
+            return true;
+        }
+
+        return false;
+    }
+
     @TestVisible
     private static List<DependencyRecord> findSubflowUsages(String flowApiName) {
         if (String.isBlank(flowApiName)) {
@@ -919,10 +1083,6 @@ public with sharing class DependencyService {
 
             // Skip the flow we're searching for
             if (parentApiName != null && parentApiName.equalsIgnoreCase(trimmedName)) continue;
-
-            // Skip Screen Flows (they can't contain subflows)
-            String processType = asNullableString(record.get('ProcessType'));
-            if (processType == 'Flow') continue; // 'Flow' = Screen Flow in SF terminology
 
             // Bug fix: wrap in try/catch to handle corrupted flow metadata
             Map<String, Object> flowMetadata;

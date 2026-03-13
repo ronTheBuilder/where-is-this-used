@@ -243,7 +243,7 @@ public with sharing class ProcessFlowService {
         }
 
         String soql =
-            'SELECT Id, ValidationName, Active, ErrorConditionFormula, EntityDefinition.QualifiedApiName ' +
+            'SELECT Id, ValidationName, Active, EntityDefinition.QualifiedApiName ' +
             'FROM ValidationRule ' +
             'WHERE EntityDefinition.QualifiedApiName = \'' + String.escapeSingleQuotes(objectName) + '\' ' +
             'AND Active = true';
@@ -255,10 +255,11 @@ public with sharing class ProcessFlowService {
                 continue;
             }
 
-            String formula = String.valueOf(row.get('ErrorConditionFormula'));
+            String vrId = String.valueOf(row.get('Id'));
+            String formula = fetchValidationRuleFormula(vrId);
             String setupUrl = '/lightning/setup/ObjectManager/' + objectName + '/ValidationRules/view';
             phaseMap.get(3).steps.add(buildStep(
-                String.valueOf(row.get('Id')),
+                vrId,
                 String.valueOf(row.get('ValidationName')),
                 'ValidationRule',
                 3,
@@ -268,6 +269,37 @@ public with sharing class ProcessFlowService {
                 String.isBlank(formula) ? 'Validation rule condition not available.' : formula,
                 setupUrl
             ));
+        }
+    }
+
+    /**
+     * Fetch the ErrorConditionFormula for a single ValidationRule via the Metadata compound field.
+     * The Metadata field is only available when querying a single record by Id.
+     * Returns null if the formula cannot be retrieved (callout budget, parse error, etc.).
+     */
+    private static String fetchValidationRuleFormula(String vrId) {
+        if (String.isBlank(vrId) || Limits.getCallouts() >= Limits.getLimitCallouts() - 2) {
+            return null;
+        }
+        try {
+            String metaSoql = 'SELECT Id, Metadata FROM ValidationRule WHERE Id = \'' +
+                String.escapeSingleQuotes(vrId) + '\'';
+            ToolingApiClient.ToolingQueryResponse metaQ = ToolingApiClient.queryToolingRecords(metaSoql, 1);
+            if (metaQ.records.isEmpty()) {
+                return null;
+            }
+            Map<String, Object> metaRow = ToolingApiClient.asMap(metaQ.records[0]);
+            Map<String, Object> meta = metaRow == null ? null : ToolingApiClient.asMap(metaRow.get('Metadata'));
+            if (meta == null) {
+                return null;
+            }
+            Object formulaObj = meta.get('errorConditionFormula') != null
+                ? meta.get('errorConditionFormula')
+                : meta.get('ErrorConditionFormula');
+            return formulaObj == null ? null : String.valueOf(formulaObj);
+        } catch (Exception ex) {
+            System.debug(LoggingLevel.WARN, 'Failed to fetch VR formula for ' + vrId + ': ' + ex.getMessage());
+            return null;
         }
     }
 

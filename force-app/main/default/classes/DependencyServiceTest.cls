@@ -61,6 +61,60 @@ private with sharing class DependencyServiceTest {
     }
 
     @IsTest
+    static void searchDependencies_includesScreenFlowSubflow() {
+        Test.setMock(HttpCalloutMock.class, new DependencyServiceMock());
+
+        Test.startTest();
+        DependencyService.DependencySearchResponse response = DependencyService.searchDependencies('Flow', 'TargetFlow');
+        Test.stopTest();
+
+        Boolean foundScreenFlowSubflow = false;
+        for (DependencyService.DependencyGroup grp : response.groups) {
+            for (DependencyService.DependencyRecord record : grp.records) {
+                if (record.isSubflowReference == true && record.metadataComponentName == 'Screen Flow') {
+                    foundScreenFlowSubflow = true;
+                }
+            }
+        }
+        System.assertEquals(true, foundScreenFlowSubflow,
+            'Screen Flows with subflow elements should be detected');
+    }
+
+    @IsTest
+    static void searchDependencies_findsFlowFieldDependencies() {
+        Test.setMock(HttpCalloutMock.class, new DependencyServiceMock());
+
+        Test.startTest();
+        DependencyService.DependencySearchResponse response = DependencyService.searchDependencies(
+            'Standard Field',
+            'Account.Name'
+        );
+        Test.stopTest();
+
+        Boolean foundFlowFieldRef = false;
+        for (DependencyService.DependencyGroup grp : response.groups) {
+            for (DependencyService.DependencyRecord record : grp.records) {
+                if (record.metadataComponentType == 'Flow' && record.accessType != null) {
+                    foundFlowFieldRef = true;
+                }
+            }
+        }
+        System.assertEquals(true, foundFlowFieldRef,
+            'Flows referencing the searched field should appear in results');
+    }
+
+    @IsTest
+    static void getActiveFlows_usesFlowVersionFallback() {
+        Test.setMock(HttpCalloutMock.class, new DependencyServiceMock());
+
+        Test.startTest();
+        List<DependencyService.MetadataOption> flows = DependencyService.getActiveFlows();
+        Test.stopTest();
+
+        System.assert(!flows.isEmpty(), 'getActiveFlows should return results via fallback chain');
+    }
+
+    @IsTest
     static void testConnection_success() {
         Test.setMock(HttpCalloutMock.class, new DependencyServiceMock());
 
@@ -92,11 +146,15 @@ private with sharing class DependencyServiceTest {
             response.setHeader('Content-Type', 'application/json');
 
             if (endpoint.contains('/sobjects/Flow/301A')) {
-                response.setBody('{"Metadata":{"subflows":[{"flowName":"TargetFlow"}]}}');
+                response.setBody('{"Metadata":{"subflows":[{"flowName":"TargetFlow"}],"decisions":[{"rules":[{"conditions":[{"leftValueReference":"$Record.Name"}]}]}]}}');
                 return response;
             }
             if (endpoint.contains('/sobjects/Flow/301B')) {
                 response.setBody('{"Metadata":{"subflows":[{"flowName":"AnotherFlow"}]}}');
+                return response;
+            }
+            if (endpoint.contains('/sobjects/Flow/301C')) {
+                response.setBody('{"Metadata":{"subflows":[{"flowName":"TargetFlow"}]}}');
                 return response;
             }
             if (endpoint.contains('/query/?q=')) {
@@ -161,9 +219,10 @@ private with sharing class DependencyServiceTest {
             }
 
             if (soql.contains('FROM FlowVersionView')) {
-                return '{"done":true,"totalSize":2,"records":[' +
+                return '{"done":true,"totalSize":3,"records":[' +
                     '{"Id":"301A","ProcessType":"AutoLaunchedFlow","FlowDefinitionView":{"ApiName":"Parent_One","Label":"Parent One"}},' +
-                    '{"Id":"301B","ProcessType":"AutoLaunchedFlow","FlowDefinitionView":{"ApiName":"Parent_Two","Label":"Parent Two"}}' +
+                    '{"Id":"301B","ProcessType":"AutoLaunchedFlow","FlowDefinitionView":{"ApiName":"Parent_Two","Label":"Parent Two"}},' +
+                    '{"Id":"301C","ProcessType":"Flow","FlowDefinitionView":{"ApiName":"Screen_Flow","Label":"Screen Flow"}}' +
                 ']}';
             }
 
