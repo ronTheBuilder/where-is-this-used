@@ -1,6 +1,7 @@
 public with sharing class ToolingApiClient {
+    public static final String API_VERSION = '66.0';
     public static final String NAMED_CREDENTIAL = 'callout:WITU_ToolingAPI';
-    public static final String TOOLING_BASE_PATH = '/services/data/v66.0/tooling';
+    public static final String TOOLING_BASE_PATH = '/services/data/v' + API_VERSION + '/tooling';
 
     private static final String CUSTOM_PERMISSION = 'WITU_Access';
     private static final Integer MAX_COMPONENT_NAME_LENGTH = 255;
@@ -106,6 +107,88 @@ public with sharing class ToolingApiClient {
         }
 
         return aggregate;
+    }
+
+    public static Map<String, ToolingQueryResponse> compositeToolingQueries(Map<String, String> labeledQueries) {
+        enforceAccess();
+        Map<String, ToolingQueryResponse> responseMap = new Map<String, ToolingQueryResponse>();
+        if (labeledQueries == null || labeledQueries.isEmpty()) {
+            return responseMap;
+        }
+
+        List<Map<String, Object>> subrequests = new List<Map<String, Object>>();
+        for (String label : labeledQueries.keySet()) {
+            String soql = labeledQueries.get(label);
+            if (String.isBlank(label) || String.isBlank(soql)) {
+                continue;
+            }
+            Map<String, Object> sub = new Map<String, Object>();
+            sub.put('method', 'GET');
+            sub.put('url', '/services/data/v' + API_VERSION + '/tooling/query/?q=' + EncodingUtil.urlEncode(soql, 'UTF-8'));
+            sub.put('referenceId', label);
+            subrequests.add(sub);
+        }
+        if (subrequests.isEmpty()) {
+            return responseMap;
+        }
+
+        checkCalloutBudget();
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint(resolveEndpoint('/services/data/v' + API_VERSION + '/tooling/composite'));
+        req.setMethod('POST');
+        req.setHeader('Content-Type', 'application/json');
+        if (!isNamedCredentialMode()) {
+            req.setHeader('Authorization', 'Bearer ' + getSessionId());
+        }
+        req.setBody(JSON.serialize(new Map<String, Object>{ 'compositeRequest' => subrequests }));
+        req.setTimeout(HTTP_TIMEOUT_MS);
+
+        HttpResponse res = new Http().send(req);
+        Integer statusCode = res == null ? 0 : res.getStatusCode();
+        if (statusCode < 200 || statusCode >= 300) {
+            throw new ToolingApiClientException(buildErrorMessage(statusCode, res == null ? null : res.getBody()));
+        }
+
+        Map<String, Object> payload = asMap(JSON.deserializeUntyped(res.getBody()));
+        List<Object> results = payload == null ? null : asList(payload.get('compositeResponse'));
+        if (results == null) {
+            return responseMap;
+        }
+
+        for (Object resultObj : results) {
+            Map<String, Object> result = asMap(resultObj);
+            if (result == null) {
+                continue;
+            }
+            String refId = result.get('referenceId') == null ? null : String.valueOf(result.get('referenceId'));
+            if (String.isBlank(refId)) {
+                continue;
+            }
+
+            ToolingQueryResponse tqr = new ToolingQueryResponse();
+            Integer subStatusCode = result.get('httpStatusCode') == null ? 0 : Integer.valueOf(String.valueOf(result.get('httpStatusCode')));
+            if (subStatusCode >= 200 && subStatusCode < 300) {
+                Map<String, Object> body = asMap(result.get('body'));
+                tqr.totalSize = body == null || body.get('totalSize') == null
+                    ? 0
+                    : Integer.valueOf(String.valueOf(body.get('totalSize')));
+                tqr.done = body == null || body.get('done') == null ? true : (Boolean) body.get('done');
+                tqr.nextRecordsUrl = body == null || body.get('nextRecordsUrl') == null
+                    ? null
+                    : String.valueOf(body.get('nextRecordsUrl'));
+                tqr.records = body != null && body.containsKey('records')
+                    ? (asList(body.get('records')) == null ? new List<Object>() : asList(body.get('records')))
+                    : new List<Object>();
+            } else {
+                tqr.totalSize = 0;
+                tqr.done = true;
+                tqr.records = new List<Object>();
+                System.debug(LoggingLevel.WARN, 'Composite sub-request failed for ' + refId + ': ' + String.valueOf(result.get('body')));
+            }
+            responseMap.put(refId, tqr);
+        }
+
+        return responseMap;
     }
 
     public static HttpResponse sendGet(String path) {

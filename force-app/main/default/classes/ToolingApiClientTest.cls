@@ -265,6 +265,25 @@ private with sharing class ToolingApiClientTest {
         System.assertEquals('pkg', String.valueOf(flowDef.get('NamespacePrefix')));
     }
 
+    @IsTest
+    static void compositeToolingQueries_returnsLabeledResults() {
+        ToolingApiClient.bypassAccessCheckForTests = true;
+        Test.setMock(HttpCalloutMock.class, new CompositeQueryMock());
+
+        Test.startTest();
+        Map<String, ToolingApiClient.ToolingQueryResponse> result =
+            ToolingApiClient.compositeToolingQueries(new Map<String, String>{
+                'layouts' => 'SELECT Id, Name FROM Layout',
+                'flexipages' => 'SELECT Id, DeveloperName FROM FlexiPage'
+            });
+        Test.stopTest();
+
+        System.assertEquals(2, result.size());
+        System.assertEquals(1, result.get('layouts').records.size());
+        System.assertEquals(0, result.get('flexipages').records.size());
+        System.assertEquals(true, result.get('flexipages').done);
+    }
+
     private class QueryPaginationMock implements HttpCalloutMock {
         public HttpResponse respond(HttpRequest req) {
             HttpResponse response = new HttpResponse();
@@ -468,6 +487,26 @@ private with sharing class ToolingApiClientTest {
                 response.setStatusCode(200);
                 response.setBody('{"done":true,"totalSize":1,"records":[' +
                     '{"Id":"300FD","DeveloperName":"ManagedFlow","NamespacePrefix":"pkg","ActiveVersionId":"301MNG"}' +
+                ']}');
+                return response;
+            }
+
+            response.setStatusCode(200);
+            response.setBody('{"done":true,"totalSize":0,"records":[]}');
+            return response;
+        }
+    }
+
+    private class CompositeQueryMock implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest req) {
+            HttpResponse response = new HttpResponse();
+            response.setHeader('Content-Type', 'application/json');
+
+            if (req.getMethod() == 'POST' && req.getEndpoint().contains('/tooling/composite')) {
+                response.setStatusCode(200);
+                response.setBody('{"compositeResponse":[' +
+                    '{"referenceId":"layouts","httpStatusCode":200,"body":{"done":true,"totalSize":1,"records":[{"Id":"00h1","Name":"Account Layout"}]}},' +
+                    '{"referenceId":"flexipages","httpStatusCode":400,"body":[{"message":"Bad query"}]}' +
                 ']}');
                 return response;
             }

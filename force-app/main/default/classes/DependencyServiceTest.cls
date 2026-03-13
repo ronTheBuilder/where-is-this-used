@@ -71,6 +71,19 @@ private with sharing class DependencyServiceTest {
         System.assertEquals(true, connected);
     }
 
+    @IsTest
+    static void getFieldsViaTooling_returnsEntityParticleFields() {
+        Test.setMock(HttpCalloutMock.class, new DependencyServiceMock());
+
+        Test.startTest();
+        List<DependencyService.MetadataOption> fields = DependencyService.getFieldsViaTooling('Account');
+        Test.stopTest();
+
+        System.assertEquals(2, fields.size());
+        System.assertEquals('AccountNumber', fields[0].value);
+        System.assertEquals('Managed_Field__c', fields[1].value);
+    }
+
     private class DependencyServiceMock implements HttpCalloutMock {
         public HTTPResponse respond(HTTPRequest req) {
             String endpoint = req.getEndpoint();
@@ -108,6 +121,13 @@ private with sharing class DependencyServiceTest {
         private String buildQueryResponse(String soql) {
             if (soql.contains('FROM Organization')) {
                 return '{"done":true,"totalSize":1,"records":[{"Id":"00Dxx0000000001"}]}';
+            }
+
+            if (soql.contains('FROM EntityParticle') && soql.contains('Account')) {
+                return '{"done":true,"totalSize":2,"records":[' +
+                    '{"QualifiedApiName":"AccountNumber","Label":"Account Number"},' +
+                    '{"QualifiedApiName":"Managed_Field__c","Label":"Managed Field","NamespacePrefix":"pkg"}' +
+                ']}';
             }
 
             if (soql.contains('FROM MetadataComponentDependency') && soql.contains('BigField')) {

@@ -1,7 +1,7 @@
 import { LightningElement, wire, track } from "lwc";
 import getMetadataTypes from "@salesforce/apex/DependencyController.getMetadataTypes";
 import getObjects from "@salesforce/apex/MetadataPickerController.getObjects";
-import getFields from "@salesforce/apex/MetadataPickerController.getFields";
+import getFieldsEnriched from "@salesforce/apex/MetadataPickerController.getFieldsEnriched";
 import getFlows from "@salesforce/apex/MetadataPickerController.getFlows";
 import getAllFlows from "@salesforce/apex/MetadataPickerController.getAllFlows";
 import searchApexClasses from "@salesforce/apex/MetadataPickerController.searchApexClasses";
@@ -397,7 +397,7 @@ export default class MetadataPicker extends LightningElement {
 
     async loadFields(objectName) {
         try {
-            const data = await getFields({ objectName });
+            const data = await getFieldsEnriched({ objectName });
             const typeFilter = this.metadataType;
             this.componentOptions = data
                 .filter((f) => f.metadataType === typeFilter)

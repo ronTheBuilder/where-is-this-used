@@ -1,5 +1,5 @@
 public with sharing class MetadataPickerController {
-    public class FieldOption {
+    public class FieldOption implements Comparable {
         @AuraEnabled public String label;
         @AuraEnabled public String value;
         @AuraEnabled public String metadataType;
@@ -8,6 +8,13 @@ public with sharing class MetadataPickerController {
             this.label = label;
             this.value = value;
             this.metadataType = metadataType;
+        }
+
+        public Integer compareTo(Object other) {
+            FieldOption o = (FieldOption) other;
+            String a = label == null ? '' : label.toLowerCase();
+            String b = o == null || o.label == null ? '' : o.label.toLowerCase();
+            return a.compareTo(b);
         }
     }
 
@@ -29,6 +36,44 @@ public with sharing class MetadataPickerController {
 
     @AuraEnabled(cacheable=true)
     public static List<FieldOption> getFields(String objectName) {
+        return getFieldsFromSchema(objectName);
+    }
+
+    @AuraEnabled
+    public static List<FieldOption> getFieldsEnriched(String objectName) {
+        // Fast path: schema describe (cached by platform)
+        List<FieldOption> schemaFields = getFieldsFromSchema(objectName);
+
+        // Best-effort enrichment via EntityParticle
+        try {
+            List<DependencyService.MetadataOption> toolingFields = DependencyService.getFieldsViaTooling(objectName);
+            Set<String> existingNames = new Set<String>();
+            for (FieldOption f : schemaFields) {
+                if (String.isNotBlank(f.value)) {
+                    existingNames.add(f.value.toLowerCase());
+                }
+            }
+
+            for (DependencyService.MetadataOption tf : toolingFields) {
+                if (tf == null || String.isBlank(tf.value)) {
+                    continue;
+                }
+                String key = tf.value.toLowerCase();
+                if (!existingNames.contains(key)) {
+                    String metadataType = tf.value.endsWith('__c') ? 'Custom Field' : 'Standard Field';
+                    schemaFields.add(new FieldOption(tf.label, tf.value, metadataType));
+                    existingNames.add(key);
+                }
+            }
+        } catch (Exception ex) {
+            System.debug(LoggingLevel.WARN, 'EntityParticle enrichment failed: ' + ex.getMessage());
+        }
+
+        schemaFields.sort();
+        return schemaFields;
+    }
+
+    private static List<FieldOption> getFieldsFromSchema(String objectName) {
         if (String.isBlank(objectName)) {
             AuraHandledException ahe = new AuraHandledException('Object name is required.');
 

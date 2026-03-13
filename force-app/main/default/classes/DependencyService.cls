@@ -124,8 +124,7 @@ public with sharing class DependencyService {
         // (MetadataComponentDependency doesn't track Layout→Field relationships)
         if (metadataType == 'Standard Field' || metadataType == 'Custom Field') {
             try {
-                flattened.addAll(findLayoutsUsingField(trimmedName));
-                flattened.addAll(findFlexiPagesUsingField(trimmedName));
+                flattened.addAll(findSupplementaryDependencies(trimmedName));
             } catch (Exception ex) {
                 // Non-fatal: layout/flexipage scan is supplementary
                 System.debug(LoggingLevel.ERROR, 'Layout/FlexiPage scan failed: ' + ex.getMessage() + ' | Stack: ' + ex.getStackTraceString());
@@ -447,6 +446,36 @@ public with sharing class DependencyService {
         return options;
     }
 
+    public static List<MetadataOption> getFieldsViaTooling(String objectName) {
+        ToolingApiClient.enforceAccess();
+        if (String.isBlank(objectName)) {
+            return new List<MetadataOption>();
+        }
+
+        String soql =
+            'SELECT QualifiedApiName, Label, DataType, NamespacePrefix ' +
+            'FROM EntityParticle ' +
+            'WHERE EntityDefinition.QualifiedApiName = \'' + String.escapeSingleQuotes(objectName) + '\' ' +
+            'ORDER BY Label';
+        ToolingApiClient.ToolingQueryResponse queryResponse =
+            ToolingApiClient.queryToolingRecords(soql, 2000);
+
+        List<MetadataOption> options = new List<MetadataOption>();
+        for (Object recordObj : queryResponse.records) {
+            Map<String, Object> record = ToolingApiClient.asMap(recordObj);
+            if (record == null) continue;
+
+            String apiName = asNullableString(record.get('QualifiedApiName'));
+            if (String.isBlank(apiName)) continue;
+
+            String label = asNullableString(record.get('Label'));
+            String displayLabel = String.isBlank(label) ? apiName : label + ' (' + apiName + ')';
+            options.add(new MetadataOption(displayLabel, apiName));
+        }
+        options.sort();
+        return options;
+    }
+
     public static List<MetadataOption> getApexClasses() {
         return searchApexClasses(null);
     }
@@ -696,27 +725,70 @@ public with sharing class DependencyService {
      * Fetches each layout's metadata JSON and checks for the field API name.
      */
     private static final Integer MAX_LAYOUT_SCAN = 50;
+    private static final Integer MAX_FLEXIPAGE_SCAN = 30;
 
-    private static List<DependencyRecord> findLayoutsUsingField(String objectDotField) {
+    private static List<DependencyRecord> findSupplementaryDependencies(String objectDotField) {
         List<DependencyRecord> results = new List<DependencyRecord>();
         if (String.isBlank(objectDotField) || !objectDotField.contains('.')) {
             return results;
         }
 
         String objectName = objectDotField.substringBefore('.');
-        String fieldName = objectDotField.substringAfter('.');
-
-        String soql = 'SELECT Id, Name FROM Layout WHERE TableEnumOrId = \'' +
+        String layoutSoql = 'SELECT Id, Name FROM Layout WHERE TableEnumOrId = \'' +
+            String.escapeSingleQuotes(objectName) + '\'';
+        String flexiSoql = 'SELECT Id, DeveloperName, MasterLabel FROM FlexiPage WHERE SobjectType = \'' +
             String.escapeSingleQuotes(objectName) + '\'';
 
-        ToolingApiClient.ToolingQueryResponse layoutResult;
         try {
-            layoutResult = ToolingApiClient.queryToolingRecords(soql, MAX_LAYOUT_SCAN);
-        } catch (ToolingApiClient.ToolingApiClientException ex) {
+            Map<String, ToolingApiClient.ToolingQueryResponse> batchResults =
+                ToolingApiClient.compositeToolingQueries(new Map<String, String>{
+                    'layouts' => layoutSoql,
+                    'flexipages' => flexiSoql
+                });
+
+            List<Object> layoutRecords = batchResults.containsKey('layouts') && batchResults.get('layouts') != null
+                ? batchResults.get('layouts').records
+                : new List<Object>();
+            List<Object> flexiRecords = batchResults.containsKey('flexipages') && batchResults.get('flexipages') != null
+                ? batchResults.get('flexipages').records
+                : new List<Object>();
+
+            results.addAll(findLayoutsUsingField(objectDotField, layoutRecords));
+            results.addAll(findFlexiPagesUsingField(objectDotField, flexiRecords));
+            return results;
+        } catch (Exception ex) {
+            System.debug(LoggingLevel.WARN, 'Composite supplementary scan failed, falling back: ' + ex.getMessage());
+            results.addAll(findLayoutsUsingField(objectDotField));
+            results.addAll(findFlexiPagesUsingField(objectDotField));
             return results;
         }
+    }
 
-        for (Object recordObj : layoutResult.records) {
+    private static List<DependencyRecord> findLayoutsUsingField(String objectDotField) {
+        if (String.isBlank(objectDotField) || !objectDotField.contains('.')) {
+            return new List<DependencyRecord>();
+        }
+        String objectName = objectDotField.substringBefore('.');
+        String soql = 'SELECT Id, Name FROM Layout WHERE TableEnumOrId = \'' +
+            String.escapeSingleQuotes(objectName) + '\'';
+        try {
+            ToolingApiClient.ToolingQueryResponse layoutResult = ToolingApiClient.queryToolingRecords(soql, MAX_LAYOUT_SCAN);
+            return findLayoutsUsingField(objectDotField, layoutResult.records);
+        } catch (ToolingApiClient.ToolingApiClientException ex) {
+            return new List<DependencyRecord>();
+        }
+    }
+
+    private static List<DependencyRecord> findLayoutsUsingField(String objectDotField, List<Object> layoutRecords) {
+        List<DependencyRecord> results = new List<DependencyRecord>();
+        if (String.isBlank(objectDotField) || !objectDotField.contains('.')) {
+            return results;
+        }
+        String objectName = objectDotField.substringBefore('.');
+        String fieldName = objectDotField.substringAfter('.');
+        List<Object> recordsToScan = layoutRecords == null ? new List<Object>() : layoutRecords;
+
+        for (Object recordObj : recordsToScan) {
             // Check remaining callout budget before fetching metadata
             if (Limits.getCallouts() >= Limits.getLimitCallouts() - 2) {
                 break;
@@ -759,29 +831,31 @@ public with sharing class DependencyService {
     /**
      * Scan Lightning Record Pages (FlexiPages) for a field reference.
      */
-    private static final Integer MAX_FLEXIPAGE_SCAN = 30;
-
     private static List<DependencyRecord> findFlexiPagesUsingField(String objectDotField) {
+        if (String.isBlank(objectDotField) || !objectDotField.contains('.')) {
+            return new List<DependencyRecord>();
+        }
+        String objectName = objectDotField.substringBefore('.');
+        String soql = 'SELECT Id, DeveloperName, MasterLabel FROM FlexiPage WHERE SobjectType = \'' +
+            String.escapeSingleQuotes(objectName) + '\'';
+        try {
+            ToolingApiClient.ToolingQueryResponse flexiResult = ToolingApiClient.queryToolingRecords(soql, MAX_FLEXIPAGE_SCAN);
+            return findFlexiPagesUsingField(objectDotField, flexiResult.records);
+        } catch (ToolingApiClient.ToolingApiClientException ex) {
+            return new List<DependencyRecord>();
+        }
+    }
+
+    private static List<DependencyRecord> findFlexiPagesUsingField(String objectDotField, List<Object> flexiRecords) {
         List<DependencyRecord> results = new List<DependencyRecord>();
         if (String.isBlank(objectDotField) || !objectDotField.contains('.')) {
             return results;
         }
-
         String objectName = objectDotField.substringBefore('.');
         String fieldName = objectDotField.substringAfter('.');
+        List<Object> recordsToScan = flexiRecords == null ? new List<Object>() : flexiRecords;
 
-        // FlexiPages linked to an object via SobjectType
-        String soql = 'SELECT Id, DeveloperName, MasterLabel FROM FlexiPage WHERE SobjectType = \'' +
-            String.escapeSingleQuotes(objectName) + '\'';
-
-        ToolingApiClient.ToolingQueryResponse flexiResult;
-        try {
-            flexiResult = ToolingApiClient.queryToolingRecords(soql, MAX_FLEXIPAGE_SCAN);
-        } catch (ToolingApiClient.ToolingApiClientException ex) {
-            return results;
-        }
-
-        for (Object recordObj : flexiResult.records) {
+        for (Object recordObj : recordsToScan) {
             if (Limits.getCallouts() >= Limits.getLimitCallouts() - 2) {
                 break;
             }
