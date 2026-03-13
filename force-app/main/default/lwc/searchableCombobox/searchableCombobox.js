@@ -106,7 +106,8 @@ export default class SearchableCombobox extends LightningElement {
 
     connectedCallback() {
         this._documentClickHandler = (event) => {
-            if (!this.template.host.contains(event.target)) {
+            const path = event.composedPath();
+            if (!path.includes(this.template.host)) {
                 this.closeDropdown();
             }
         };

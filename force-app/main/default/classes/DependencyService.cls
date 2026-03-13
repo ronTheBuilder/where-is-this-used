@@ -385,83 +385,65 @@ public with sharing class DependencyService {
 
     public static List<MetadataOption> getActiveFlows() {
         ToolingApiClient.enforceAccess();
-        ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryFlowVersionsWithFallback(
-            null, 'Status = \'Active\'', MAX_DEPENDENCY_ROWS
-        );
+        String soql =
+            'SELECT Id, ApiName, Label, NamespacePrefix ' +
+            'FROM FlowDefinitionView WHERE IsActive = true ORDER BY Label';
+        ToolingApiClient.ToolingQueryResponse queryResponse =
+            ToolingApiClient.queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
 
-        Map<String, MetadataOption> unique = new Map<String, MetadataOption>();
+        List<MetadataOption> options = new List<MetadataOption>();
         for (Object recordObj : queryResponse.records) {
             Map<String, Object> record = ToolingApiClient.asMap(recordObj);
-            Map<String, Object> flowDefView = ToolingApiClient.asMap(record.get('FlowDefinitionView'));
-            if (flowDefView == null) continue;
+            if (record == null) continue;
 
-            String apiName = asNullableString(flowDefView.get('ApiName'));
+            String apiName = asNullableString(record.get('ApiName'));
             if (String.isBlank(apiName)) continue;
 
-            String label = asNullableString(flowDefView.get('Label'));
-            String namespace = flowDefView.get('NamespacePrefix') == null ? null : asNullableString(flowDefView.get('NamespacePrefix'));
+            String label = asNullableString(record.get('Label'));
+            String namespace = record.get('NamespacePrefix') == null
+                ? null
+                : asNullableString(record.get('NamespacePrefix'));
 
-            // Qualified name for managed package flows (e.g., npe03__Payments_Flow)
-            String qualifiedName = String.isNotBlank(namespace) ? namespace + '__' + apiName : apiName;
-            String displayLabel = String.isBlank(label) ? qualifiedName : label;
+            String displayValue = String.isNotBlank(namespace) ? namespace + '__' + apiName : apiName;
+            String displayLabel = String.isBlank(label) ? apiName : label;
             if (String.isNotBlank(namespace)) {
-                displayLabel += ' [' + namespace + ']';
+                displayLabel += ' (' + namespace + ')';
             }
-
-            unique.put(qualifiedName, new MetadataOption(displayLabel, qualifiedName));
+            options.add(new MetadataOption(displayLabel, displayValue));
         }
-
-        List<String> keys = new List<String>(unique.keySet());
-        keys.sort();
-        List<MetadataOption> options = new List<MetadataOption>();
-        for (String key : keys) {
-            options.add(unique.get(key));
-        }
+        options.sort();
         return options;
     }
 
     public static List<MetadataOption> getAllFlows() {
         ToolingApiClient.enforceAccess();
-        ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryFlowVersionsWithFallback(
-            'Status, VersionNumber',
-            'Status IN (\'Active\', \'Draft\', \'Obsolete\', \'InvalidDraft\')',
-            MAX_DEPENDENCY_ROWS
-        );
+        String soql =
+            'SELECT Id, ApiName, Label, NamespacePrefix, IsActive ' +
+            'FROM FlowDefinitionView ORDER BY Label';
+        ToolingApiClient.ToolingQueryResponse queryResponse =
+            ToolingApiClient.queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
 
-        // Deduplicate by qualifiedName — prefer Active version; include status + namespace in label
-        Map<String, MetadataOption> unique = new Map<String, MetadataOption>();
-        Map<String, String> bestStatus = new Map<String, String>();
-
+        List<MetadataOption> options = new List<MetadataOption>();
         for (Object recordObj : queryResponse.records) {
             Map<String, Object> record = ToolingApiClient.asMap(recordObj);
-            Map<String, Object> flowDefView = ToolingApiClient.asMap(record.get('FlowDefinitionView'));
-            if (flowDefView == null) continue;
+            if (record == null) continue;
 
-            String apiName = asNullableString(flowDefView.get('ApiName'));
+            String apiName = asNullableString(record.get('ApiName'));
             if (String.isBlank(apiName)) continue;
 
-            String label = asNullableString(flowDefView.get('Label'));
-            String namespace = flowDefView.get('NamespacePrefix') == null ? null : asNullableString(flowDefView.get('NamespacePrefix'));
-            String status = record.get('Status') == null ? 'Unknown' : asNullableString(record.get('Status'));
+            String label = asNullableString(record.get('Label'));
+            String namespace = record.get('NamespacePrefix') == null
+                ? null
+                : asNullableString(record.get('NamespacePrefix'));
 
-            String qualifiedName = String.isNotBlank(namespace) ? namespace + '__' + apiName : apiName;
-            Boolean replace = !unique.containsKey(qualifiedName) || status == 'Active';
-            if (replace) {
-                String displayLabel = (String.isBlank(label) ? qualifiedName : label) + ' [' + status + ']';
-                if (String.isNotBlank(namespace)) {
-                    displayLabel += ' [' + namespace + ']';
-                }
-                unique.put(qualifiedName, new MetadataOption(displayLabel, qualifiedName));
-                bestStatus.put(qualifiedName, status);
+            String displayValue = String.isNotBlank(namespace) ? namespace + '__' + apiName : apiName;
+            String displayLabel = String.isBlank(label) ? apiName : label;
+            if (String.isNotBlank(namespace)) {
+                displayLabel += ' (' + namespace + ')';
             }
+            options.add(new MetadataOption(displayLabel, displayValue));
         }
-
-        List<String> keys = new List<String>(unique.keySet());
-        keys.sort();
-        List<MetadataOption> options = new List<MetadataOption>();
-        for (String key : keys) {
-            options.add(unique.get(key));
-        }
+        options.sort();
         return options;
     }
 

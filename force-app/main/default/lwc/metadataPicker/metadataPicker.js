@@ -182,7 +182,7 @@ export default class MetadataPicker extends LightningElement {
         }
     }
 
-    handleRecentSearchClick(event) {
+    async handleRecentSearchClick(event) {
         const key = event.currentTarget.dataset.key;
         const entry = this.recentSearches.find((s) => s.key === key);
         if (!entry) {
@@ -190,12 +190,39 @@ export default class MetadataPicker extends LightningElement {
         }
 
         this.metadataType = entry.metadataType;
-        this.selectedComponent = entry.componentName;
-        if (entry.objectName) {
-            this.selectedObject = entry.objectName;
+        this.selectedObject = entry.objectName || "";
+        this.selectedComponent = "";
+        this.componentOptions = [];
+
+        if (this.showObjectPicker) {
+            await this.loadObjects();
+            if (entry.objectName) {
+                this.selectedObject = entry.objectName;
+                if (this.metadataType === "Standard Field" || this.metadataType === "Custom Field") {
+                    await this.loadFields(entry.objectName);
+                } else if (this.metadataType === "Record Type") {
+                    await this.loadRecordTypes(entry.objectName);
+                } else if (this.metadataType === "Validation Rule") {
+                    await this.loadValidationRules(entry.objectName);
+                } else if (this.metadataType === "Formula Field") {
+                    await this.loadFormulaFields(entry.objectName);
+                }
+            }
+        } else if (this.metadataType === "Flow") {
+            await this.loadFlows();
+        } else if (this.metadataType === "Apex Class") {
+            await this.loadApexClasses("");
+        } else if (this.metadataType === "Custom Label") {
+            await this.loadCustomLabels();
+        } else if (this.metadataType === "Platform Event") {
+            await this.loadPlatformEvents();
+        } else if (this.metadataType === "Custom Metadata Type") {
+            await this.loadCustomMetadataTypes();
         }
+
+        this.selectedComponent = entry.componentName;
         this.updateSearchState();
-        this.handleSearch();
+        await this.handleSearch();
     }
 
     handleClearRecent() {
