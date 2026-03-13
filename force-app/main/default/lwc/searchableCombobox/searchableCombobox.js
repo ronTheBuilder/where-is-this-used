@@ -1,6 +1,6 @@
 import { LightningElement, api, track } from "lwc";
 
-const MAX_VISIBLE = 200;
+const MAX_VISIBLE = 500;
 
 export default class SearchableCombobox extends LightningElement {
     @api label = "";
@@ -200,7 +200,9 @@ export default class SearchableCombobox extends LightningElement {
         }
     }
 
-    handleOptionClick(event) {
+    handleOptionMouseDown(event) {
+        event.preventDefault();
+        event.stopPropagation();
         const val = event.currentTarget.dataset.value;
         this.selectOption(val);
     }

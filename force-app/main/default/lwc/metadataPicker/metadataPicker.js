@@ -44,6 +44,18 @@ function isNoiseObject(apiName) {
     return false;
 }
 
+function buildRecentSearchKey(metadataType, componentName, objectName) {
+    return [metadataType || "", objectName || "", componentName || ""].join(":");
+}
+
+function buildRecentSearchLabel(metadataType, componentName, objectName) {
+    let label = (metadataType || "") + ": " + (componentName || "");
+    if (objectName) {
+        label += " [" + objectName + "]";
+    }
+    return label;
+}
+
 export default class MetadataPicker extends LightningElement {
     @track metadataType = "";
     @track selectedObject = "";
@@ -62,6 +74,7 @@ export default class MetadataPicker extends LightningElement {
 
     // Internal state
     _searchTimeout = null;
+    _recentSearchRequestId = 0;
     _allObjectOptions = [];
     _allFlowOptions = [];
     _activeFlowOptions = [];
@@ -163,12 +176,13 @@ export default class MetadataPicker extends LightningElement {
     }
 
     saveRecentSearch(metadataType, componentName, objectName) {
+        const key = buildRecentSearchKey(metadataType, componentName, objectName);
         const entry = {
-            key: metadataType + ":" + componentName,
+            key,
             metadataType,
             componentName,
             objectName: objectName || null,
-            label: componentName + " (" + metadataType + ")",
+            label: buildRecentSearchLabel(metadataType, componentName, objectName),
             timestamp: Date.now()
         };
         let searches = this.recentSearches.filter((s) => s.key !== entry.key);
@@ -188,6 +202,8 @@ export default class MetadataPicker extends LightningElement {
         if (!entry) {
             return;
         }
+        const requestId = this._recentSearchRequestId + 1;
+        this._recentSearchRequestId = requestId;
 
         this.metadataType = entry.metadataType;
         this.selectedObject = entry.objectName || "";
@@ -196,6 +212,9 @@ export default class MetadataPicker extends LightningElement {
 
         if (this.showObjectPicker) {
             await this.loadObjects();
+            if (requestId !== this._recentSearchRequestId) {
+                return;
+            }
             if (entry.objectName) {
                 this.selectedObject = entry.objectName;
                 if (this.metadataType === "Standard Field" || this.metadataType === "Custom Field") {
@@ -207,21 +226,42 @@ export default class MetadataPicker extends LightningElement {
                 } else if (this.metadataType === "Formula Field") {
                     await this.loadFormulaFields(entry.objectName);
                 }
+                if (requestId !== this._recentSearchRequestId) {
+                    return;
+                }
             }
         } else if (this.metadataType === "Flow") {
             await this.loadFlows();
+            if (requestId !== this._recentSearchRequestId) {
+                return;
+            }
         } else if (this.metadataType === "Apex Class") {
             await this.loadApexClasses("");
+            if (requestId !== this._recentSearchRequestId) {
+                return;
+            }
         } else if (this.metadataType === "Custom Label") {
             await this.loadCustomLabels();
+            if (requestId !== this._recentSearchRequestId) {
+                return;
+            }
         } else if (this.metadataType === "Platform Event") {
             await this.loadPlatformEvents();
+            if (requestId !== this._recentSearchRequestId) {
+                return;
+            }
         } else if (this.metadataType === "Custom Metadata Type") {
             await this.loadCustomMetadataTypes();
+            if (requestId !== this._recentSearchRequestId) {
+                return;
+            }
         }
 
         this.selectedComponent = entry.componentName;
         this.updateSearchState();
+        if (requestId !== this._recentSearchRequestId) {
+            return;
+        }
         await this.handleSearch();
     }
 

@@ -39,13 +39,16 @@
                     <ul class="slds-listbox slds-listbox_vertical" role="presentation">
                         <template if:true={hasFilteredOptions}>
                             <template for:each={filteredOptions} for:item="opt">
-                                <li key={opt.value} role="presentation" class="slds-listbox__item">
+                                <li
+                                    key={opt.value}
+                                    role="presentation"
+                                    class="slds-listbox__item"
+                                    data-value={opt.value}
+                                    onmousedown={handleOptionMouseDown}>
                                     <div
                                         class={opt.itemClass}
                                         role="option"
                                         aria-selected={opt.isSelected}
-                                        data-value={opt.value}
-                                        onclick={handleOptionClick}
                                         onmouseenter={handleOptionHover}>
                                         <span class="slds-media__body">
                                             <span class="slds-truncate">{opt.label}</span>
