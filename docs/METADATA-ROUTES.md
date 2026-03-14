@@ -26,7 +26,9 @@ DependencyController ──→ DependencyService ──→ ToolingApiClient
 
 MetadataPickerController ──→ DependencyService (same chain)
 
-BlastRadiusController ──→ BlastRadiusService ──→ ToolingApiClient
+BlastRadiusController ──→ BlastRadiusService ──→ DependencyService ──→ ToolingApiClient
+                                               │                     ├─→ FlowFieldAnalyzer
+                                               │                     └─→ SetupUrlResolver
                                                └─→ SetupUrlResolver
 
 DataJourneyController ──→ DataJourneyService ──→ ToolingApiClient
@@ -66,7 +68,7 @@ Shared modules (no UI):
 | Class | Purpose | Lines |
 |-------|---------|-------|
 | **DependencyService** | Core engine — accepts metadata type + component name, queries MetadataComponentDependency + supplementary scans (layouts, FlexiPages, flows). Also provides all picker data methods. | ~900 |
-| **BlastRadiusService** | Recursive multi-hop dependency traversal. DFS with cycle detection, max 5 depth, 500 nodes, 50 API calls. | ~350 |
+| **BlastRadiusService** | Recursive multi-hop dependency traversal. DFS with cycle detection; uses `DependencyService.searchDependencies()` at each hop for multi-strategy dependency resolution (MetadataComponentDependency + field supplementary scans). | ~350 |
 | **DataJourneyService** | Field-centric BFS — traces what reads/writes a field (upstream + downstream) via dependency queries + flow metadata analysis. | ~400 |
 | **ProcessFlowService** | Maps all automation on an object in execution-order phases (triggers → VRs → flows → workflow). | ~300 |
 | **FlowFieldAnalyzer** | Pure utility — recursive JSON tree walker for flow metadata. Extracts fieldsRead, fieldsWritten, subflowsCalled. Also parses formula text. | ~200 |
@@ -173,6 +175,14 @@ Each level triggers only when the previous throws a query error.
 **FlexiPage scan:** Same approach for Lightning Record Pages.
 
 **Flow field scan:** Gets all active flow versions → fetches each flow's metadata JSON → `FlowFieldAnalyzer.analyzeFlow()` determines Read / Write / Read+Write access type.
+
+### Blast Radius Resolution Route
+
+Blast Radius no longer queries `MetadataComponentDependency` directly. Each traversal hop calls:
+
+`BlastRadiusService.fetchDependents()` → `DependencyService.searchDependencies(metadataType, componentName)`
+
+This reuses the same multi-strategy dependency logic as the Finder tab, including fallback query strategies and field-specific supplementary scans (Layout/FlexiPage/Flow), so blast-radius edges match dependency-search results.
 
 ### All Tooling API Queries
 

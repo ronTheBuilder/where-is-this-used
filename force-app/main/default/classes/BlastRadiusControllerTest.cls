@@ -28,65 +28,74 @@ private with sharing class BlastRadiusControllerTest {
 
     @IsTest
     static void getBlastRadius_returnsResponse() {
-        Test.setMock(HttpCalloutMock.class, new ControllerBlastRadiusMock(false));
+        BlastRadiusService.setDependencyProviderForTest(
+            new ControllerFakeProvider(new Map<String, List<DependencyService.DependencyRecord>>{
+                key('Flow', 'RootFlow') => new List<DependencyService.DependencyRecord>{
+                    rec('01pB', 'UsingClass', 'ApexClass')
+                },
+                key('Apex Class', 'UsingClass') => new List<DependencyService.DependencyRecord>()
+            })
+        );
 
-        Test.startTest();
-        BlastRadiusService.BlastRadiusResponse response = BlastRadiusController.getBlastRadius('Flow', 'RootFlow', 3);
-        Test.stopTest();
+        try {
+            Test.startTest();
+            BlastRadiusService.BlastRadiusResponse response = BlastRadiusController.getBlastRadius('Flow', 'RootFlow', 3);
+            Test.stopTest();
 
-        System.assertEquals(2, response.stats.totalNodes);
-        System.assertEquals(1, response.stats.totalEdges);
-        System.assertEquals(false, response.limitReached);
+            System.assertEquals(2, response.stats.totalNodes);
+            System.assertEquals(1, response.stats.totalEdges);
+            System.assertEquals(false, response.limitReached);
+        } finally {
+            BlastRadiusService.resetDependencyProviderForTest();
+        }
     }
 
     @IsTest
     static void getBlastRadius_wrapsServiceException() {
-        Test.setMock(HttpCalloutMock.class, new ControllerBlastRadiusMock(true));
-
         Boolean thrown = false;
         try {
-            BlastRadiusController.getBlastRadius('Flow', 'RootFlow', 3);
+            BlastRadiusController.getBlastRadius('Flow', 'Invalid Name!', 3);
         } catch (AuraHandledException ex) {
             thrown = true;
-            System.assert(ex.getMessage().contains('Tooling API request failed'));
+            System.assert(ex.getMessage().contains('invalid characters'));
         }
 
         System.assertEquals(true, thrown);
     }
 
-    private class ControllerBlastRadiusMock implements HttpCalloutMock {
-        private final Boolean shouldError;
+    private static String key(String metadataType, String componentName) {
+        return metadataType + '|' + componentName;
+    }
 
-        ControllerBlastRadiusMock(Boolean shouldError) {
-            this.shouldError = shouldError;
+    private static DependencyService.DependencyRecord rec(String idValue, String name, String type) {
+        DependencyService.DependencyRecord record = new DependencyService.DependencyRecord();
+        record.metadataComponentId = idValue;
+        record.metadataComponentName = name;
+        record.metadataComponentType = type;
+        record.metadataComponentNamespace = null;
+        record.refMetadataComponentName = null;
+        record.refMetadataComponentType = null;
+        record.accessType = null;
+        record.setupUrl = null;
+        record.isSubflowReference = false;
+        return record;
+    }
+
+    private class ControllerFakeProvider implements BlastRadiusService.BlastRadiusDependencyProvider {
+        private final Map<String, List<DependencyService.DependencyRecord>> recordsByKey;
+
+        ControllerFakeProvider(Map<String, List<DependencyService.DependencyRecord>> recordsByKey) {
+            this.recordsByKey = recordsByKey == null
+                ? new Map<String, List<DependencyService.DependencyRecord>>()
+                : recordsByKey;
         }
 
-        public HTTPResponse respond(HTTPRequest req) {
-            HttpResponse response = new HttpResponse();
-            response.setHeader('Content-Type', 'application/json');
-
-            if (shouldError) {
-                response.setStatusCode(500);
-                response.setBody('{"message":"failure"}');
-                return response;
+        public List<DependencyService.DependencyRecord> search(String metadataType, String componentName) {
+            String searchKey = key(metadataType, componentName);
+            if (!recordsByKey.containsKey(searchKey)) {
+                return new List<DependencyService.DependencyRecord>();
             }
-
-            response.setStatusCode(200);
-            String endpoint = req.getEndpoint();
-            if (endpoint.contains('/query/?q=')) {
-                String soql = EncodingUtil.urlDecode(endpoint.substring(endpoint.indexOf('?q=') + 3), 'UTF-8');
-                if (soql.contains('RefMetadataComponentType = \'FlowDefinition\'')) {
-                    response.setBody('{"done":true,"totalSize":1,"records":[' +
-                        '{"MetadataComponentId":"01pB","MetadataComponentName":"UsingClass","MetadataComponentType":"ApexClass","RefMetadataComponentName":"RootFlow"}' +
-                    ']}');
-                    return response;
-                }
-                response.setBody('{"done":true,"totalSize":0,"records":[]}');
-                return response;
-            }
-
-            response.setBody('{"done":true,"totalSize":0,"records":[]}');
-            return response;
+            return recordsByKey.get(searchKey);
         }
     }
 }

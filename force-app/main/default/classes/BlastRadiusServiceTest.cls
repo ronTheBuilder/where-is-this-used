@@ -7,88 +7,151 @@ private with sharing class BlastRadiusServiceTest {
 
     @IsTest
     static void getBlastRadius_resolvesBasicGraph() {
-        Test.setMock(HttpCalloutMock.class, new BlastRadiusMock('basic'));
-
-        Test.startTest();
-        BlastRadiusService.BlastRadiusResponse response = BlastRadiusService.getBlastRadius(
-            'Custom Field',
-            'Account.MyField__c',
-            3
+        BlastRadiusService.setDependencyProviderForTest(
+            new FakeDependencyProvider(new Map<String, List<DependencyService.DependencyRecord>>{
+                key('Custom Field', 'Account.MyField__c') => new List<DependencyService.DependencyRecord>{
+                    rec('301A', 'FlowUsage', 'Flow'),
+                    rec('01pA', 'ClassUsage', 'ApexClass')
+                },
+                key('Flow', 'FlowUsage') => new List<DependencyService.DependencyRecord>{
+                    rec('01qA', 'TriggerUsage', 'ApexTrigger')
+                },
+                key('Apex Class', 'ClassUsage') => new List<DependencyService.DependencyRecord>(),
+                key('ApexTrigger', 'TriggerUsage') => new List<DependencyService.DependencyRecord>()
+            }, false)
         );
-        Test.stopTest();
 
-        System.assertEquals(false, response.limitReached);
-        System.assertEquals(4, response.stats.totalNodes);
-        System.assertEquals(3, response.stats.totalEdges);
-        System.assertEquals(2, response.totalDepth);
+        try {
+            Test.startTest();
+            BlastRadiusService.BlastRadiusResponse response = BlastRadiusService.getBlastRadius(
+                'Custom Field',
+                'Account.MyField__c',
+                3
+            );
+            Test.stopTest();
 
-        BlastRadiusService.GraphNode root = findNode(response.nodes, 'Account.MyField__c');
-        System.assertNotEquals(null, root);
-        System.assertEquals(true, root.isRoot);
-        System.assertEquals('CustomField', root.componentType);
+            System.assertEquals(false, response.limitReached);
+            System.assertEquals(4, response.stats.totalNodes);
+            System.assertEquals(3, response.stats.totalEdges);
+            System.assertEquals(2, response.totalDepth);
+
+            BlastRadiusService.GraphNode root = findNode(response.nodes, 'Account.MyField__c');
+            System.assertNotEquals(null, root);
+            System.assertEquals(true, root.isRoot);
+            System.assertEquals('CustomField', root.componentType);
+        } finally {
+            BlastRadiusService.resetDependencyProviderForTest();
+        }
     }
 
     @IsTest
     static void getBlastRadius_marksCycleNodes() {
-        Test.setMock(HttpCalloutMock.class, new BlastRadiusMock('cycle'));
+        BlastRadiusService.setDependencyProviderForTest(
+            new FakeDependencyProvider(new Map<String, List<DependencyService.DependencyRecord>>{
+                key('Flow', 'CycleRoot') => new List<DependencyService.DependencyRecord>{
+                    rec('301CC', 'CycleChild', 'Flow')
+                },
+                key('Flow', 'CycleChild') => new List<DependencyService.DependencyRecord>{
+                    rec('301CR', 'CycleRoot', 'FlowDefinition')
+                }
+            }, false)
+        );
 
-        Test.startTest();
-        BlastRadiusService.BlastRadiusResponse response = BlastRadiusService.getBlastRadius('Flow', 'CycleRoot', 5);
-        Test.stopTest();
+        try {
+            Test.startTest();
+            BlastRadiusService.BlastRadiusResponse response = BlastRadiusService.getBlastRadius('Flow', 'CycleRoot', 5);
+            Test.stopTest();
 
-        BlastRadiusService.GraphNode root = findNode(response.nodes, 'CycleRoot');
-        BlastRadiusService.GraphNode child = findNode(response.nodes, 'CycleChild');
-        System.assertNotEquals(null, root);
-        System.assertNotEquals(null, child);
-        System.assertEquals(true, root.isCycleNode);
-        System.assertEquals(true, child.isCycleNode);
-        System.assertEquals(2, response.stats.totalEdges);
+            BlastRadiusService.GraphNode root = findNode(response.nodes, 'CycleRoot');
+            BlastRadiusService.GraphNode child = findNode(response.nodes, 'CycleChild');
+            System.assertNotEquals(null, root);
+            System.assertNotEquals(null, child);
+            System.assertEquals(true, root.isCycleNode);
+            System.assertEquals(true, child.isCycleNode);
+            System.assertEquals(2, response.stats.totalEdges);
+        } finally {
+            BlastRadiusService.resetDependencyProviderForTest();
+        }
     }
 
     @IsTest
     static void getBlastRadius_enforcesDepthLimit() {
-        Test.setMock(HttpCalloutMock.class, new BlastRadiusMock('depth'));
+        BlastRadiusService.setDependencyProviderForTest(
+            new FakeDependencyProvider(new Map<String, List<DependencyService.DependencyRecord>>{
+                key('Flow', 'DepthRoot') => new List<DependencyService.DependencyRecord>{
+                    rec('301D1', 'DepthL1', 'Flow')
+                },
+                key('Flow', 'DepthL1') => new List<DependencyService.DependencyRecord>{
+                    rec('301D2', 'DepthL2', 'Flow')
+                },
+                key('Flow', 'DepthL2') => new List<DependencyService.DependencyRecord>{
+                    rec('301D3', 'DepthL3', 'Flow')
+                }
+            }, false)
+        );
 
-        Test.startTest();
-        BlastRadiusService.BlastRadiusResponse response = BlastRadiusService.getBlastRadius('Flow', 'DepthRoot', 2);
-        Test.stopTest();
+        try {
+            Test.startTest();
+            BlastRadiusService.BlastRadiusResponse response = BlastRadiusService.getBlastRadius('Flow', 'DepthRoot', 2);
+            Test.stopTest();
 
-        System.assertNotEquals(null, findNode(response.nodes, 'DepthL1'));
-        System.assertNotEquals(null, findNode(response.nodes, 'DepthL2'));
-        System.assertEquals(null, findNode(response.nodes, 'DepthL3'));
-        System.assertEquals(2, response.totalDepth);
+            System.assertNotEquals(null, findNode(response.nodes, 'DepthL1'));
+            System.assertNotEquals(null, findNode(response.nodes, 'DepthL2'));
+            System.assertEquals(null, findNode(response.nodes, 'DepthL3'));
+            System.assertEquals(2, response.totalDepth);
+        } finally {
+            BlastRadiusService.resetDependencyProviderForTest();
+        }
     }
 
     @IsTest
     static void getBlastRadius_stopsAtNodeCap() {
-        Test.setMock(HttpCalloutMock.class, new BlastRadiusMock('nodeCap'));
+        List<DependencyService.DependencyRecord> rootChildren = new List<DependencyService.DependencyRecord>();
+        for (Integer i = 0; i < 501; i++) {
+            rootChildren.add(rec('01pNC' + String.valueOf(i), 'NodeCapChild' + String.valueOf(i), 'ApexClass'));
+        }
 
-        Test.startTest();
-        BlastRadiusService.BlastRadiusResponse response = BlastRadiusService.getBlastRadius('Flow', 'NodeCapRoot', 3);
-        Test.stopTest();
+        BlastRadiusService.setDependencyProviderForTest(
+            new FakeDependencyProvider(new Map<String, List<DependencyService.DependencyRecord>>{
+                key('Flow', 'NodeCapRoot') => rootChildren
+            }, false)
+        );
 
-        System.assertEquals(true, response.limitReached);
-        // With MAX_API_CALLS=50, root uses 1 call then each child uses 1 → ~51 nodes
-        System.assert(response.stats.totalNodes > 1, 'Expected multiple nodes, got: ' + response.stats.totalNodes);
-        System.assert(response.stats.totalNodes <= 500, 'Expected at most 500 nodes');
-        System.assert(response.warningMessage != null);
+        try {
+            Test.startTest();
+            BlastRadiusService.BlastRadiusResponse response = BlastRadiusService.getBlastRadius('Flow', 'NodeCapRoot', 3);
+            Test.stopTest();
+
+            System.assertEquals(true, response.limitReached);
+            System.assert(response.stats.totalNodes > 1, 'Expected multiple nodes, got: ' + response.stats.totalNodes);
+            System.assert(response.stats.totalNodes <= 500, 'Expected at most 500 nodes');
+            System.assert(response.warningMessage != null);
+            System.assert(response.warningMessage.contains('Maximum node limit reached'));
+        } finally {
+            BlastRadiusService.resetDependencyProviderForTest();
+        }
     }
 
     @IsTest
-    static void getBlastRadius_throwsOnToolingError() {
-        Test.setMock(HttpCalloutMock.class, new BlastRadiusMock('error'));
+    static void getBlastRadius_addsWarningWhenDependencyLookupFails() {
+        BlastRadiusService.setDependencyProviderForTest(new FakeDependencyProvider(
+            new Map<String, List<DependencyService.DependencyRecord>>(),
+            true
+        ));
 
-        Boolean thrown = false;
         try {
             Test.startTest();
-            BlastRadiusService.getBlastRadius('Flow', 'ErrorRoot', 3);
+            BlastRadiusService.BlastRadiusResponse response = BlastRadiusService.getBlastRadius('Flow', 'ErrorRoot', 3);
             Test.stopTest();
-        } catch (BlastRadiusService.BlastRadiusServiceException ex) {
-            thrown = true;
-            System.assert(ex.getMessage().contains('Tooling API request failed'));
-        }
 
-        System.assertEquals(true, thrown);
+            System.assertEquals(false, response.limitReached);
+            System.assertEquals(1, response.stats.totalNodes);
+            System.assertEquals(0, response.stats.totalEdges);
+            System.assertNotEquals(null, response.warningMessage);
+            System.assert(response.warningMessage.contains('Could not fetch dependents for ErrorRoot'));
+        } finally {
+            BlastRadiusService.resetDependencyProviderForTest();
+        }
     }
 
     @IsTest
@@ -112,6 +175,24 @@ private with sharing class BlastRadiusServiceTest {
             }
         }
         return null;
+    }
+
+    private static String key(String metadataType, String componentName) {
+        return metadataType + '|' + componentName;
+    }
+
+    private static DependencyService.DependencyRecord rec(String idValue, String name, String type) {
+        DependencyService.DependencyRecord record = new DependencyService.DependencyRecord();
+        record.metadataComponentId = idValue;
+        record.metadataComponentName = name;
+        record.metadataComponentType = type;
+        record.metadataComponentNamespace = null;
+        record.refMetadataComponentName = null;
+        record.refMetadataComponentType = null;
+        record.accessType = null;
+        record.setupUrl = null;
+        record.isSubflowReference = false;
+        return record;
     }
 
     private static void grantAccessPermission() {
@@ -139,137 +220,26 @@ private with sharing class BlastRadiusServiceTest {
         }
     }
 
-    private class BlastRadiusMock implements HttpCalloutMock {
-        private final String scenario;
+    private class FakeDependencyProvider implements BlastRadiusService.BlastRadiusDependencyProvider {
+        private final Map<String, List<DependencyService.DependencyRecord>> recordsByKey;
+        private final Boolean shouldThrow;
 
-        BlastRadiusMock(String scenario) {
-            this.scenario = scenario;
+        FakeDependencyProvider(Map<String, List<DependencyService.DependencyRecord>> recordsByKey, Boolean shouldThrow) {
+            this.recordsByKey = recordsByKey == null
+                ? new Map<String, List<DependencyService.DependencyRecord>>()
+                : recordsByKey;
+            this.shouldThrow = shouldThrow;
         }
 
-        public HTTPResponse respond(HTTPRequest req) {
-            HttpResponse response = new HttpResponse();
-            response.setHeader('Content-Type', 'application/json');
-
-            String endpoint = req.getEndpoint();
-            if (scenario == 'error') {
-                response.setStatusCode(500);
-                response.setBody('{"message":"boom"}');
-                return response;
+        public List<DependencyService.DependencyRecord> search(String metadataType, String componentName) {
+            if (shouldThrow == true) {
+                throw new BlastRadiusService.BlastRadiusServiceException('Tooling API request failed: boom');
             }
-
-            response.setStatusCode(200);
-            if (endpoint.contains('/query/?q=')) {
-                String soql = decodeSoql(endpoint);
-                response.setBody(buildQueryResponse(soql));
-                return response;
+            String searchKey = key(metadataType, componentName);
+            if (!recordsByKey.containsKey(searchKey)) {
+                return new List<DependencyService.DependencyRecord>();
             }
-
-            response.setBody('{"done":true,"totalSize":0,"records":[]}');
-            return response;
-        }
-
-        private String decodeSoql(String endpoint) {
-            Integer qStart = endpoint.indexOf('?q=');
-            if (qStart < 0) {
-                return '';
-            }
-
-            String encoded = endpoint.substring(qStart + 3);
-            return EncodingUtil.urlDecode(encoded, 'UTF-8');
-        }
-
-        private String buildQueryResponse(String soql) {
-            if (scenario == 'basic') {
-                return basicResponse(soql);
-            }
-            if (scenario == 'cycle') {
-                return cycleResponse(soql);
-            }
-            if (scenario == 'depth') {
-                return depthResponse(soql);
-            }
-            if (scenario == 'nodeCap') {
-                return nodeCapResponse(soql);
-            }
-            return '{"done":true,"totalSize":0,"records":[]}';
-        }
-
-        private String basicResponse(String soql) {
-            // Refactored: queries by RefMetadataComponentType only; client-side filters by RefMetadataComponentName
-            if (soql.contains('RefMetadataComponentType = \'CustomField\'')) {
-                return '{"done":true,"totalSize":2,"records":[' +
-                    '{"MetadataComponentId":"301A","MetadataComponentName":"FlowUsage","MetadataComponentType":"Flow","RefMetadataComponentName":"Account.MyField__c"},' +
-                    '{"MetadataComponentId":"01pA","MetadataComponentName":"ClassUsage","MetadataComponentType":"ApexClass","RefMetadataComponentName":"Account.MyField__c"}' +
-                ']}';
-            }
-            if (soql.contains('RefMetadataComponentType = \'Flow\'')) {
-                return '{"done":true,"totalSize":1,"records":[' +
-                    '{"MetadataComponentId":"01qA","MetadataComponentName":"TriggerUsage","MetadataComponentType":"ApexTrigger","RefMetadataComponentName":"FlowUsage"}' +
-                ']}';
-            }
-            if (soql.contains('RefMetadataComponentType = \'ApexClass\'')) {
-                return '{"done":true,"totalSize":0,"records":[]}';
-            }
-            return '{"done":true,"totalSize":0,"records":[]}';
-        }
-
-        private String cycleResponse(String soql) {
-            if (soql.contains('CycleRoot')) {
-                return '{"done":true,"totalSize":1,"records":[' +
-                    '{"MetadataComponentId":"301CC","MetadataComponentName":"CycleChild","MetadataComponentType":"Flow","RefMetadataComponentName":"CycleRoot"}' +
-                ']}';
-            }
-            if (soql.contains('CycleChild')) {
-                return '{"done":true,"totalSize":1,"records":[' +
-                    '{"MetadataComponentId":"301CR","MetadataComponentName":"CycleRoot","MetadataComponentType":"FlowDefinition","RefMetadataComponentName":"CycleChild"}' +
-                ']}';
-            }
-            return '{"done":true,"totalSize":0,"records":[]}';
-        }
-
-        private String depthResponse(String soql) {
-            if (!soql.contains('RefMetadataComponentType = \'FlowDefinition\'') && !soql.contains('RefMetadataComponentType = \'Flow\'')) {
-                return '{"done":true,"totalSize":0,"records":[]}';
-            }
-            if (soql.contains('DepthRoot')) {
-                return '{"done":true,"totalSize":1,"records":[' +
-                    '{"MetadataComponentId":"301D1","MetadataComponentName":"DepthL1","MetadataComponentType":"Flow","RefMetadataComponentName":"DepthRoot"}' +
-                ']}';
-            }
-            if (soql.contains('DepthL1')) {
-                return '{"done":true,"totalSize":1,"records":[' +
-                    '{"MetadataComponentId":"301D2","MetadataComponentName":"DepthL2","MetadataComponentType":"Flow","RefMetadataComponentName":"DepthL1"}' +
-                ']}';
-            }
-            if (soql.contains('DepthL2')) {
-                return '{"done":true,"totalSize":1,"records":[' +
-                    '{"MetadataComponentId":"301D3","MetadataComponentName":"DepthL3","MetadataComponentType":"Flow","RefMetadataComponentName":"DepthL2"}' +
-                ']}';
-            }
-            return '{"done":true,"totalSize":0,"records":[]}';
-        }
-
-        private String nodeCapResponse(String soql) {
-            if (!soql.contains('RefMetadataComponentType = \'FlowDefinition\'') && !soql.contains('RefMetadataComponentType = \'Flow\'')) {
-                return '{"done":true,"totalSize":0,"records":[]}';
-            }
-
-            List<Object> rows = new List<Object>();
-            for (Integer i = 0; i < 501; i++) {
-                rows.add(new Map<String, Object>{
-                    'MetadataComponentId' => '01pNC' + String.valueOf(i),
-                    'MetadataComponentName' => 'NodeCapChild' + String.valueOf(i),
-                    'MetadataComponentType' => 'ApexClass',
-                    'RefMetadataComponentName' => 'NodeCapRoot'
-                });
-            }
-
-            Map<String, Object> payload = new Map<String, Object>{
-                'done' => true,
-                'totalSize' => 501,
-                'records' => rows
-            };
-            return JSON.serialize(payload);
+            return recordsByKey.get(searchKey);
         }
     }
 }

@@ -1,8 +1,12 @@
 public with sharing class BlastRadiusService {
-    private static final Integer DEFAULT_MAX_DEPTH = 3;
+    private static final Integer DEFAULT_MAX_DEPTH = 2;
     private static final Integer ABSOLUTE_MAX_DEPTH = 5;
     private static final Integer MAX_NODES = 500;
-    private static final Integer MAX_API_CALLS = 50;
+    private static final Integer MAX_API_CALLS = 12;
+
+    public interface BlastRadiusDependencyProvider {
+        List<DependencyService.DependencyRecord> search(String metadataType, String componentName);
+    }
 
     public class BlastRadiusServiceException extends Exception {}
 
@@ -47,6 +51,38 @@ public with sharing class BlastRadiusService {
         public Boolean limitReached = false;
         public Set<String> warnings = new Set<String>();
         public Integer maxDepthReached = 0;
+    }
+
+    private class DefaultBlastRadiusDependencyProvider implements BlastRadiusDependencyProvider {
+        public List<DependencyService.DependencyRecord> search(String metadataType, String componentName) {
+            DependencyService.DependencySearchResponse searchResult =
+                DependencyService.searchDependencies(metadataType, componentName);
+
+            List<DependencyService.DependencyRecord> records = new List<DependencyService.DependencyRecord>();
+            if (searchResult == null || searchResult.groups == null) {
+                return records;
+            }
+
+            for (DependencyService.DependencyGroup group : searchResult.groups) {
+                if (group != null && group.records != null) {
+                    records.addAll(group.records);
+                }
+            }
+            return records;
+        }
+    }
+
+    @TestVisible
+    private static BlastRadiusDependencyProvider dependencyProvider = new DefaultBlastRadiusDependencyProvider();
+
+    @TestVisible
+    static void setDependencyProviderForTest(BlastRadiusDependencyProvider provider) {
+        dependencyProvider = provider == null ? new DefaultBlastRadiusDependencyProvider() : provider;
+    }
+
+    @TestVisible
+    static void resetDependencyProviderForTest() {
+        dependencyProvider = new DefaultBlastRadiusDependencyProvider();
     }
 
     private class ComponentRef implements Comparable {
@@ -128,7 +164,7 @@ public with sharing class BlastRadiusService {
 
         if (context.apiCalls >= MAX_API_CALLS) {
             context.limitReached = true;
-            context.warnings.add('Maximum API call limit reached (50). Returned a partial graph.');
+            context.warnings.add('Maximum API call limit reached (' + String.valueOf(MAX_API_CALLS) + '). Returned a partial graph.');
             return;
         }
 
@@ -140,7 +176,7 @@ public with sharing class BlastRadiusService {
 
             if (context.nodesByKey.size() >= MAX_NODES && !context.nodesByKey.containsKey(dependent.key())) {
                 context.limitReached = true;
-                context.warnings.add('Maximum node limit reached (500). Returned a partial graph.');
+                context.warnings.add('Maximum node limit reached (' + String.valueOf(MAX_NODES) + '). Returned a partial graph.');
                 return;
             }
 
@@ -175,39 +211,43 @@ public with sharing class BlastRadiusService {
     private static List<ComponentRef> fetchDependents(ComponentRef component, Integer nextDepth, GraphContext context) {
         context.apiCalls++;
 
-        String selectFields = 'MetadataComponentId, MetadataComponentName, MetadataComponentType, RefMetadataComponentName';
-
-        ToolingApiClient.ToolingQueryResponse queryResponse;
+        String searchType = reverseNormalizeType(component.type);
+        List<DependencyService.DependencyRecord> dependencyRecords;
         try {
-            queryResponse = ToolingApiClient.queryDependenciesWithNameFallback(
-                selectFields, component.type, component.name, 2000
-            );
-        } catch (ToolingApiClient.ToolingApiClientException ex) {
-            throw new BlastRadiusServiceException(ex.getMessage());
+            dependencyRecords = dependencyProvider.search(searchType, component.name);
+        } catch (Exception ex) {
+            context.warnings.add('Could not fetch dependents for ' + component.name + ': ' + ex.getMessage());
+            return new List<ComponentRef>();
         }
+
         List<ComponentRef> dependents = new List<ComponentRef>();
-
-        for (Object recordObj : queryResponse.records) {
-            Map<String, Object> row = ToolingApiClient.asMap(recordObj);
-            if (row == null) {
-                continue;
-            }
-
-            String depName = asNullableString(row.get('MetadataComponentName'));
-            String depType = asNullableString(row.get('MetadataComponentType'));
-            if (String.isBlank(depName) || String.isBlank(depType)) {
-                continue;
-            }
-
-            String depId = row.get('MetadataComponentId') == null
-                ? buildSyntheticId(depType, depName)
-                : asNullableString(row.get('MetadataComponentId'));
-            dependents.add(new ComponentRef(depId, depName, depType, nextDepth));
+        if (dependencyRecords == null) {
+            return dependents;
         }
 
-        // Sort client-side (replacement for removed ORDER BY)
+        for (DependencyService.DependencyRecord rec : dependencyRecords) {
+            if (rec == null || String.isBlank(rec.metadataComponentName) || String.isBlank(rec.metadataComponentType)) {
+                continue;
+            }
+
+            String depId = String.isBlank(rec.metadataComponentId)
+                ? buildSyntheticId(rec.metadataComponentType, rec.metadataComponentName)
+                : rec.metadataComponentId;
+            dependents.add(new ComponentRef(depId, rec.metadataComponentName, rec.metadataComponentType, nextDepth));
+        }
+
         dependents.sort();
         return dependents;
+    }
+
+    private static String reverseNormalizeType(String internalType) {
+        Map<String, String> reverseMap = new Map<String, String>{
+            'StandardEntity' => 'Standard Field',
+            'CustomField' => 'Custom Field',
+            'FlowDefinition' => 'Flow',
+            'ApexClass' => 'Apex Class'
+        };
+        return reverseMap.containsKey(internalType) ? reverseMap.get(internalType) : internalType;
     }
 
     private static GraphNode addOrUpdateNode(
@@ -331,7 +371,4 @@ public with sharing class BlastRadiusService {
         return 'synthetic:' + makeNodeKey(componentType, componentName);
     }
 
-    private static String asNullableString(Object value) {
-        return value == null ? null : String.valueOf(value);
-    }
 }
