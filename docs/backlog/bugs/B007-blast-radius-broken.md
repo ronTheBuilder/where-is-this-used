@@ -1,6 +1,6 @@
 # B007 — Blast Radius Toont Geen Dependencies
 
-Status: 🟢 approved
+Status: ✅ done
 Priority: Critical
 Added: 2026-03-14
 
