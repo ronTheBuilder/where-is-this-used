@@ -35,7 +35,7 @@
                         </span>
                     </template>
                 </div>
-                <div id="listbox" class="slds-dropdown slds-dropdown_length-7" role="listbox" if:true={isOpen}>
+                <div id="listbox" class="slds-dropdown" role="listbox" if:true={isOpen}>
                     <ul class="slds-listbox slds-listbox_vertical" role="presentation">
                         <template if:true={hasFilteredOptions}>
                             <template for:each={filteredOptions} for:item="opt">

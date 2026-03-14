@@ -241,6 +241,15 @@ export default class SearchableCombobox extends LightningElement {
         }
     }
 
+    renderedCallback() {
+        // SLDS applies transform: translateX(-50%) on .slds-dropdown which pushes it off-screen.
+        // Inline style override is the only way to beat SLDS platform CSS specificity in LWC.
+        const dd = this.template.querySelector(".slds-dropdown");
+        if (dd) {
+            dd.style.transform = "none";
+        }
+    }
+
     openDropdown() {
         this.isOpen = true;
         this.focusedIndex = -1;
