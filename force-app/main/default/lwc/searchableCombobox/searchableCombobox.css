@@ -23,6 +23,7 @@
     overflow-y: auto;
     width: 100%;
     min-width: 100%;
+    transform: none;
 }
 
 .no-results {
