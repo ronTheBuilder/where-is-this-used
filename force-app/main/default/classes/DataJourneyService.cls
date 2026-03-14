@@ -452,29 +452,59 @@ public with sharing class DataJourneyService {
     private static List<DependencyHit> queryDependenciesForField(String fullFieldName) {
         String fieldName = extractFieldName(fullFieldName);
         String refType = isCustomField(fieldName) ? 'CustomField' : 'StandardEntity';
-
-        String selectFields =
-            'MetadataComponentId, MetadataComponentName, MetadataComponentType, MetadataComponentNamespace, RefMetadataComponentName';
-
-        ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryDependenciesWithNameFallback(
-            selectFields, refType, fullFieldName, MAX_DEPENDENCY_ROWS
-        );
         List<DependencyHit> hits = new List<DependencyHit>();
 
-        for (Object recordObj : queryResponse.records) {
-            Map<String, Object> row = ToolingApiClient.asMap(recordObj);
-            if (row == null) {
-                continue;
-            }
+        if (refType == 'StandardEntity') {
+            String soql =
+                'SELECT MetadataComponentId, MetadataComponentName, MetadataComponentType, MetadataComponentNamespace, ' +
+                'RefMetadataComponentId, RefMetadataComponentName, RefMetadataComponentType, RefMetadataComponentNamespace ' +
+                'FROM MetadataComponentDependency ' +
+                'WHERE MetadataComponentType = \'StandardEntity\'';
+            ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
 
-            DependencyHit hit = new DependencyHit();
-            hit.metadataComponentId = stringValue(row.get('MetadataComponentId'));
-            hit.metadataComponentName = stringValue(row.get('MetadataComponentName'));
-            hit.metadataComponentType = stringValue(row.get('MetadataComponentType'));
-            hit.metadataComponentNamespace = stringValue(row.get('MetadataComponentNamespace'));
-            hit.accessType = inferAccessType(hit.metadataComponentType);
-            hit.setupUrl = SetupUrlResolver.resolve(hit.metadataComponentType, null, null);
-            hits.add(hit);
+            for (Object recordObj : queryResponse.records) {
+                Map<String, Object> row = ToolingApiClient.asMap(recordObj);
+                if (row == null) {
+                    continue;
+                }
+
+                String metadataName = stringValue(row.get('MetadataComponentName'));
+                if (String.isBlank(metadataName) || !metadataName.equalsIgnoreCase(fullFieldName)) {
+                    continue;
+                }
+
+                DependencyHit hit = new DependencyHit();
+                hit.metadataComponentId = stringValue(row.get('RefMetadataComponentId'));
+                hit.metadataComponentName = stringValue(row.get('RefMetadataComponentName'));
+                hit.metadataComponentType = stringValue(row.get('RefMetadataComponentType'));
+                hit.metadataComponentNamespace = stringValue(row.get('RefMetadataComponentNamespace'));
+                hit.accessType = inferAccessType(hit.metadataComponentType);
+                hit.setupUrl = SetupUrlResolver.resolve(hit.metadataComponentType, null, null);
+                hits.add(hit);
+            }
+        } else {
+            String selectFields =
+                'MetadataComponentId, MetadataComponentName, MetadataComponentType, MetadataComponentNamespace, RefMetadataComponentName';
+
+            ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryDependenciesWithNameFallback(
+                selectFields, refType, fullFieldName, MAX_DEPENDENCY_ROWS
+            );
+
+            for (Object recordObj : queryResponse.records) {
+                Map<String, Object> row = ToolingApiClient.asMap(recordObj);
+                if (row == null) {
+                    continue;
+                }
+
+                DependencyHit hit = new DependencyHit();
+                hit.metadataComponentId = stringValue(row.get('MetadataComponentId'));
+                hit.metadataComponentName = stringValue(row.get('MetadataComponentName'));
+                hit.metadataComponentType = stringValue(row.get('MetadataComponentType'));
+                hit.metadataComponentNamespace = stringValue(row.get('MetadataComponentNamespace'));
+                hit.accessType = inferAccessType(hit.metadataComponentType);
+                hit.setupUrl = SetupUrlResolver.resolve(hit.metadataComponentType, null, null);
+                hits.add(hit);
+            }
         }
 
         return hits;

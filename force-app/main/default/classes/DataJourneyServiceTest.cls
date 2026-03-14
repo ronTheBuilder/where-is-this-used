@@ -120,9 +120,13 @@ private with sharing class DataJourneyServiceTest {
             }
 
             if (soql.contains('FROM MetadataComponentDependency') && soql.contains('StandardEntity')) {
-                // Opportunity.Type downstream dependencies
-                return '{"done":true,"totalSize":1,"records":[' +
-                    '{"MetadataComponentId":"F2","MetadataComponentName":"Route_To_Queue","MetadataComponentType":"Flow","MetadataComponentNamespace":null,"RefMetadataComponentName":"Opportunity.Type"}' +
+                // Reverse-direction StandardEntity query:
+                // MetadataComponent* is the field, RefMetadataComponent* is who references the field.
+                return '{"done":true,"totalSize":2,"records":[' +
+                    '{"MetadataComponentId":"SE1","MetadataComponentName":"Opportunity.Type","MetadataComponentType":"StandardEntity","MetadataComponentNamespace":null,' +
+                    '"RefMetadataComponentId":"F2","RefMetadataComponentName":"Route_To_Queue","RefMetadataComponentType":"Flow","RefMetadataComponentNamespace":null},' +
+                    '{"MetadataComponentId":"SE2","MetadataComponentName":"Opportunity.StageName","MetadataComponentType":"StandardEntity","MetadataComponentNamespace":null,' +
+                    '"RefMetadataComponentId":"F9","RefMetadataComponentName":"Ignore_Me","RefMetadataComponentType":"Flow","RefMetadataComponentNamespace":null}' +
                 ']}';
             }
 
