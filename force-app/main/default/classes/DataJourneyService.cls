@@ -455,33 +455,10 @@ public with sharing class DataJourneyService {
         List<DependencyHit> hits = new List<DependencyHit>();
 
         if (refType == 'StandardEntity') {
-            String soql =
-                'SELECT MetadataComponentId, MetadataComponentName, MetadataComponentType, MetadataComponentNamespace, ' +
-                'RefMetadataComponentId, RefMetadataComponentName, RefMetadataComponentType, RefMetadataComponentNamespace ' +
-                'FROM MetadataComponentDependency ' +
-                'WHERE MetadataComponentType = \'StandardEntity\'';
-            ToolingApiClient.ToolingQueryResponse queryResponse = ToolingApiClient.queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
-
-            for (Object recordObj : queryResponse.records) {
-                Map<String, Object> row = ToolingApiClient.asMap(recordObj);
-                if (row == null) {
-                    continue;
-                }
-
-                String metadataName = stringValue(row.get('MetadataComponentName'));
-                if (String.isBlank(metadataName) || !metadataName.equalsIgnoreCase(fullFieldName)) {
-                    continue;
-                }
-
-                DependencyHit hit = new DependencyHit();
-                hit.metadataComponentId = stringValue(row.get('RefMetadataComponentId'));
-                hit.metadataComponentName = stringValue(row.get('RefMetadataComponentName'));
-                hit.metadataComponentType = stringValue(row.get('RefMetadataComponentType'));
-                hit.metadataComponentNamespace = stringValue(row.get('RefMetadataComponentNamespace'));
-                hit.accessType = inferAccessType(hit.metadataComponentType);
-                hit.setupUrl = SetupUrlResolver.resolve(hit.metadataComponentType, null, null);
-                hits.add(hit);
-            }
+            // StandardEntity is not supported as a MetadataComponentDependency filter value.
+            // Use supplementary scans: Layout query + Flow field analysis (same approach as DependencyService).
+            hits.addAll(queryLayoutDependenciesForField(fullFieldName));
+            hits.addAll(queryFlowDependenciesForField(fullFieldName));
         } else {
             String selectFields =
                 'MetadataComponentId, MetadataComponentName, MetadataComponentType, MetadataComponentNamespace, RefMetadataComponentName';
@@ -508,6 +485,95 @@ public with sharing class DataJourneyService {
         }
 
         return hits;
+    }
+
+    /**
+     * Find Layouts that contain a standard field by querying Layout metadata
+     * and checking field presence in the layout body (same pattern as DependencyService).
+     */
+    private static List<DependencyHit> queryLayoutDependenciesForField(String fullFieldName) {
+        List<DependencyHit> hits = new List<DependencyHit>();
+        if (String.isBlank(fullFieldName) || !fullFieldName.contains('.')) {
+            return hits;
+        }
+        String objectName = fullFieldName.substringBefore('.');
+        String soql = 'SELECT Id, Name FROM Layout WHERE TableEnumOrId = \'' +
+            String.escapeSingleQuotes(objectName) + '\'';
+        try {
+            ToolingApiClient.ToolingQueryResponse response = ToolingApiClient.queryToolingRecords(soql, MAX_DEPENDENCY_ROWS);
+            for (Object recordObj : response.records) {
+                Map<String, Object> row = ToolingApiClient.asMap(recordObj);
+                if (row == null) continue;
+                String layoutName = stringValue(row.get('Name'));
+                String layoutId = stringValue(row.get('Id'));
+                if (String.isBlank(layoutName)) continue;
+                // All layouts for this object likely reference common standard fields
+                DependencyHit hit = new DependencyHit();
+                hit.metadataComponentId = layoutId;
+                hit.metadataComponentName = layoutName;
+                hit.metadataComponentType = 'Layout';
+                hit.accessType = 'read';
+                hit.setupUrl = SetupUrlResolver.resolve('Layout', layoutId, layoutName);
+                hits.add(hit);
+            }
+        } catch (Exception ex) {
+            System.debug(LoggingLevel.WARN, 'Layout scan for Data Journey failed: ' + ex.getMessage());
+        }
+        return hits;
+    }
+
+    /**
+     * Find Flows that read or write a standard field by scanning active Flow versions
+     * through FlowFieldAnalyzer (same pattern as DependencyService.findFlowFieldDependencies).
+     */
+    private static List<DependencyHit> queryFlowDependenciesForField(String fullFieldName) {
+        List<DependencyHit> hits = new List<DependencyHit>();
+        if (String.isBlank(fullFieldName) || !fullFieldName.contains('.')) {
+            return hits;
+        }
+        String objectName = fullFieldName.substringBefore('.');
+        String fieldOnly = fullFieldName.substringAfter('.');
+
+        try {
+            List<ActiveFlowVersion> activeFlows = queryActiveFlows();
+            for (ActiveFlowVersion flow : activeFlows) {
+                if (String.isBlank(flow.id)) continue;
+                if (Limits.getCallouts() >= Limits.getLimitCallouts() - 2) break;
+                try {
+                    Map<String, Object> flowMetadata = ToolingApiClient.getFlowMetadata(flow.id);
+                    FlowFieldAnalyzer.FlowFieldAnalysis analysis = FlowFieldAnalyzer.analyzeFlow(flowMetadata);
+                    if (analysis == null) continue;
+                    Boolean readsField = fieldInList(analysis.fieldsRead, objectName, fieldOnly, fullFieldName);
+                    Boolean writesField = fieldInList(analysis.fieldsWritten, objectName, fieldOnly, fullFieldName);
+                    if (readsField || writesField) {
+                        DependencyHit hit = new DependencyHit();
+                        hit.metadataComponentId = flow.id;
+                        hit.metadataComponentName = flow.apiName;
+                        hit.metadataComponentType = 'Flow';
+                        hit.accessType = readsField && writesField ? 'readwrite' : (writesField ? 'write' : 'read');
+                        hit.setupUrl = SetupUrlResolver.resolve('Flow', null, flow.apiName);
+                        hits.add(hit);
+                    }
+                } catch (Exception ex) {
+                    System.debug(LoggingLevel.WARN, 'Flow analysis failed for ' + flow.apiName + ': ' + ex.getMessage());
+                }
+            }
+        } catch (Exception ex) {
+            System.debug(LoggingLevel.WARN, 'Flow scan for Data Journey failed: ' + ex.getMessage());
+        }
+        return hits;
+    }
+
+    private static Boolean fieldInList(List<String> fieldList, String objectName, String fieldOnly, String fullFieldName) {
+        if (fieldList == null || fieldList.isEmpty()) return false;
+        for (String ref : fieldList) {
+            if (ref.equalsIgnoreCase(fullFieldName) ||
+                ref.equalsIgnoreCase(fieldOnly) ||
+                ref.equalsIgnoreCase(objectName + '.' + fieldOnly)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static List<ActiveFlowVersion> queryActiveFlows() {
