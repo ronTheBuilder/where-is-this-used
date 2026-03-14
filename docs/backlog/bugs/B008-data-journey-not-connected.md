@@ -1,6 +1,6 @@
 # B008 — Data Journey Toont Altijd 0 Nodes
 
-Status: 📋 ready
+Status: ✅ done
 Priority: High
 Added: 2026-03-14
 

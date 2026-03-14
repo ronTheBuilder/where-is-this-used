@@ -39,5 +39,5 @@ _Feature-driven workflow: Simon adds → Buurman specs → Simon approves → Im
 | B005 | Test failures (11 tests, pre-existing debt) | 💡 idea | — |
 | B006 | Dropdown staat niet direct onder input | ✅ done | High |
 | B007 | Blast Radius toont geen dependencies | ✅ done | Critical |
-| B008 | Data Journey toont altijd 0 nodes (props niet doorgegeven) | 📋 ready | High |
+| B008 | Data Journey toont altijd 0 nodes (props niet doorgegeven) | ✅ done | High |
 | B009 | Flow Blast Radius altijd leeg in dev org (UX) | 💡 idea | Low |
