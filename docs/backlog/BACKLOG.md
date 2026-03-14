@@ -37,3 +37,4 @@ _Feature-driven workflow: Simon adds → Buurman specs → Simon approves → Im
 | B003 | Combobox dropdown misalignment + click handling | ✅ done | — |
 | B004 | Recent searches stale data on fast clicks | ✅ done | — |
 | B005 | Test failures (11 tests, pre-existing debt) | 💡 idea | — |
+| B006 | Dropdown staat niet direct onder input | 🟢 approved | High |
