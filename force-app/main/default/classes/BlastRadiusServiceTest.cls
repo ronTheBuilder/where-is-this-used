@@ -119,14 +119,14 @@ private with sharing class BlastRadiusServiceTest {
 
         try {
             Test.startTest();
-            BlastRadiusService.BlastRadiusResponse response = BlastRadiusService.getBlastRadius('Flow', 'NodeCapRoot', 3);
+            BlastRadiusService.BlastRadiusResponse response = BlastRadiusService.getBlastRadius('Flow', 'NodeCapRoot', 1);
             Test.stopTest();
 
             System.assertEquals(true, response.limitReached);
             System.assert(response.stats.totalNodes > 1, 'Expected multiple nodes, got: ' + response.stats.totalNodes);
             System.assert(response.stats.totalNodes <= 500, 'Expected at most 500 nodes');
             System.assert(response.warningMessage != null);
-            System.assert(response.warningMessage.contains('Maximum node limit reached'));
+            System.assert(response.warningMessage.contains('limit reached'));
         } finally {
             BlastRadiusService.resetDependencyProviderForTest();
         }

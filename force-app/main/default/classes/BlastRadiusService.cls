@@ -63,9 +63,9 @@ public with sharing class BlastRadiusService {
                 return records;
             }
 
-            for (DependencyService.DependencyGroup group : searchResult.groups) {
-                if (group != null && group.records != null) {
-                    records.addAll(group.records);
+            for (DependencyService.DependencyGroup depGroup : searchResult.groups) {
+                if (depGroup != null && depGroup.records != null) {
+                    records.addAll(depGroup.records);
                 }
             }
             return records;
@@ -122,8 +122,12 @@ public with sharing class BlastRadiusService {
         }
 
         // Flow names may contain spaces/dashes (MasterLabel fallback),
-        // so skip strict regex validation for Flows.
-        if (metadataType != 'Flow') {
+        // so use a looser validation for Flows (letters, digits, spaces, dashes, underscores, dots).
+        if (metadataType == 'Flow') {
+            if (!Pattern.compile('^[a-zA-Z0-9 _\\-.]+$').matcher(componentName.trim()).matches()) {
+                throw new BlastRadiusServiceException('Component name contains invalid characters.');
+            }
+        } else {
             try {
                 ToolingApiClient.validateComponentName(componentName);
             } catch (ToolingApiClient.ToolingApiClientException ex) {
