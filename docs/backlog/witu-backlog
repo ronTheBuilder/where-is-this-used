@@ -1,0 +1,175 @@
+#!/bin/bash
+# WITU Backlog CLI — quick filter for features and bugs
+# Usage: witu-backlog [command] [filter]
+#
+# Commands:
+#   list|ls          List all items (default)
+#   features|f       List features only
+#   bugs|b           List bugs only
+#   open|o           List open items (not ✅ done or ❌ rejected)
+#   done|d           List completed items
+#   search|s <term>  Search by keyword in all backlog files
+#   show <ID>        Show full content of a specific item (e.g. F003, B005)
+#   help|h           Show this help
+#
+# Examples:
+#   witu-backlog                     # list everything
+#   witu-backlog open                # only open items
+#   witu-backlog features open       # only open features
+#   witu-backlog search "managed"    # search for keyword
+#   witu-backlog show F003           # show full spec for F003
+
+BACKLOG_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+GRAY='\033[0;90m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+list_items() {
+    local dir="$1"  # features or bugs
+    local filter_status="$2"  # open, done, or empty for all
+
+    local dirs=()
+    if [[ "$dir" == "features" ]]; then
+        dirs=("$BACKLOG_DIR/features")
+    elif [[ "$dir" == "bugs" ]]; then
+        dirs=("$BACKLOG_DIR/bugs")
+    else
+        dirs=("$BACKLOG_DIR/features" "$BACKLOG_DIR/bugs")
+    fi
+
+    for d in "${dirs[@]}"; do
+        [[ -d "$d" ]] || continue
+        local type_label
+        type_label=$(basename "$d" | tr '[:lower:]' '[:upper:]')
+        echo ""
+        echo -e "${BOLD}${type_label}${NC}"
+        echo "─────────────────────────────────────────────"
+
+        for f in "$d"/*.md; do
+            [[ -f "$f" ]] || continue
+            local filename
+            filename=$(basename "$f" .md)
+            local id
+            id=$(echo "$filename" | grep -oE '^[FB][0-9]+')
+            local title
+            title=$(head -1 "$f" | sed 's/^# //' | sed "s/^${id} — //")
+            local status
+            status=$(grep -m1 '^Status:' "$f" | sed 's/^Status: //')
+            local prio
+            prio=$(grep -m1 '^Priority:' "$f" | sed 's/^Priority: //')
+
+            # Filter by status
+            if [[ "$filter_status" == "open" ]]; then
+                echo "$status" | grep -qE '✅|❌' && continue
+            elif [[ "$filter_status" == "done" ]]; then
+                echo "$status" | grep -q '✅' || continue
+            fi
+
+            # Color by status
+            local status_color="$NC"
+            case "$status" in
+                *done*) status_color="$GREEN" ;;
+                *idea*) status_color="$YELLOW" ;;
+                *"in progress"*) status_color="$BLUE" ;;
+                *"spec ready"*) status_color="$BLUE" ;;
+                *approved*) status_color="$GREEN" ;;
+                *rejected*) status_color="$RED" ;;
+            esac
+
+            printf "  ${BOLD}%-6s${NC} %-40s ${status_color}%-20s${NC} %s\n" \
+                "$id" "$title" "$status" "$prio"
+        done
+    done
+    echo ""
+}
+
+search_items() {
+    local term="$1"
+    echo -e "\n${BOLD}Search: ${NC}\"$term\""
+    echo "─────────────────────────────────────────────"
+    grep -ril "$term" "$BACKLOG_DIR/features" "$BACKLOG_DIR/bugs" 2>/dev/null | while read -r f; do
+        local filename
+        filename=$(basename "$f" .md)
+        local id
+        id=$(echo "$filename" | grep -oE '^[FB][0-9]+')
+        local title
+        title=$(head -1 "$f" | sed 's/^# //' | sed "s/^${id} — //")
+        local match
+        match=$(grep -i --color=always "$term" "$f" | head -3)
+        echo -e "\n  ${BOLD}${id}${NC} — $title"
+        echo "$match" | sed 's/^/    /'
+    done
+    echo ""
+}
+
+show_item() {
+    local id="$1"
+    id=$(echo "$id" | tr '[:lower:]' '[:upper:]')
+    local found=0
+    for d in "$BACKLOG_DIR/features" "$BACKLOG_DIR/bugs"; do
+        for f in "$d"/*.md; do
+            [[ -f "$f" ]] || continue
+            if basename "$f" | grep -qi "^${id}-"; then
+                echo ""
+                cat "$f"
+                echo ""
+                found=1
+                break
+            fi
+        done
+        [[ $found -eq 1 ]] && break
+    done
+    if [[ $found -eq 0 ]]; then
+        echo "Item $id not found."
+        return 1
+    fi
+}
+
+# Parse arguments
+cmd="${1:-list}"
+arg2="$2"
+
+case "$cmd" in
+    list|ls)
+        list_items "all" "$arg2"
+        ;;
+    features|f)
+        list_items "features" "$arg2"
+        ;;
+    bugs|b)
+        list_items "bugs" "$arg2"
+        ;;
+    open|o)
+        list_items "all" "open"
+        ;;
+    done|d)
+        list_items "all" "done"
+        ;;
+    search|s)
+        if [[ -z "$arg2" ]]; then
+            echo "Usage: witu-backlog search <term>"
+            exit 1
+        fi
+        search_items "$arg2"
+        ;;
+    show)
+        if [[ -z "$arg2" ]]; then
+            echo "Usage: witu-backlog show <ID>"
+            exit 1
+        fi
+        show_item "$arg2"
+        ;;
+    help|h|--help|-h)
+        head -13 "$0" | tail -12 | sed 's/^# //' | sed 's/^#//'
+        ;;
+    *)
+        # Treat as search term
+        search_items "$cmd"
+        ;;
+esac
