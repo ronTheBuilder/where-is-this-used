@@ -22,11 +22,13 @@
                         Blast Radius
                     </a>
                 </li>
-                <li class={dataJourneyTabClass} role="presentation">
-                    <a class="slds-tabs_default__link" role="tab" tabindex="0" aria-selected={dataJourneyTabSelected} data-tab="dataJourney" onclick={handleTabClick}>
-                        Data Journey
-                    </a>
-                </li>
+                <template if:true={showDataJourneyTab}>
+                    <li class={dataJourneyTabClass} role="presentation">
+                        <a class="slds-tabs_default__link" role="tab" tabindex="0" aria-selected={dataJourneyTabSelected} data-tab="dataJourney" onclick={handleTabClick}>
+                            Data Journey
+                        </a>
+                    </li>
+                </template>
                 <li class={processFlowTabClass} role="presentation">
                     <a class="slds-tabs_default__link" role="tab" tabindex="0" aria-selected={processFlowTabSelected} data-tab="processFlow" onclick={handleTabClick}>
                         Process Flow
@@ -40,7 +42,8 @@
                     <c-metadata-picker
                         onsearch={handleSearch}
                         onsearcherror={handleSearchError}
-                        onloading={handleLoading}>
+                        onloading={handleLoading}
+                        onselectionchange={handleSelectionChange}>
                     </c-metadata-picker>
 
                     <template if:true={isLoading}>
@@ -111,7 +114,7 @@
             <!-- Data Journey tab -->
             <template if:true={isDataJourneyTab}>
                 <div class="slds-tabs_default__content slds-show" role="tabpanel">
-                    <c-data-journey-view></c-data-journey-view>
+                    <c-data-journey-view object-name={selectedObject} field-name={selectedComponent}></c-data-journey-view>
                 </div>
             </template>
 

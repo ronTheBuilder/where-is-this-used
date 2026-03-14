@@ -259,6 +259,7 @@ export default class MetadataPicker extends LightningElement {
 
         this.selectedComponent = entry.componentName;
         this.updateSearchState();
+        this.fireSelectionChange();
         if (requestId !== this._recentSearchRequestId) {
             return;
         }
@@ -290,6 +291,7 @@ export default class MetadataPicker extends LightningElement {
         this.selectedComponent = "";
         this.componentOptions = [];
         this.updateSearchState();
+        this.fireSelectionChange();
 
         if (this.showObjectPicker) {
             this.loadObjects();
@@ -317,6 +319,7 @@ export default class MetadataPicker extends LightningElement {
         this.selectedComponent = "";
         this.componentOptions = [];
         this.updateSearchState();
+        this.fireSelectionChange();
 
         if (!this.selectedObject) {
             return;
@@ -336,6 +339,7 @@ export default class MetadataPicker extends LightningElement {
     handleComponentChange(event) {
         this.selectedComponent = event.detail.value;
         this.updateSearchState();
+        this.fireSelectionChange();
     }
 
     handleComponentSearch(event) {
@@ -520,6 +524,18 @@ export default class MetadataPicker extends LightningElement {
 
     fireLoading(isLoading) {
         this.dispatchEvent(new CustomEvent("loading", { detail: isLoading }));
+    }
+
+    fireSelectionChange() {
+        this.dispatchEvent(
+            new CustomEvent("selectionchange", {
+                detail: {
+                    metadataType: this.metadataType,
+                    selectedObject: this.selectedObject,
+                    selectedComponent: this.selectedComponent
+                }
+            })
+        );
     }
 
     reduceError(error) {

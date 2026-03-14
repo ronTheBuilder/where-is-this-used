@@ -1,5 +1,7 @@
 import { LightningElement, track } from 'lwc';
 
+const FIELD_METADATA_TYPES = new Set(['Standard Field', 'Custom Field', 'Formula Field']);
+
 export default class DependencyFinder extends LightningElement {
     @track activeTab = 'finder';
     @track searchResponse;
@@ -7,6 +9,9 @@ export default class DependencyFinder extends LightningElement {
     @track error;
     @track blastMetadataType = '';
     @track blastComponentName = '';
+    @track selectedMetadataType = '';
+    @track selectedObject = '';
+    @track selectedComponent = '';
 
     get isFinderTab() {
         return this.activeTab === 'finder';
@@ -21,7 +26,7 @@ export default class DependencyFinder extends LightningElement {
     }
 
     get isDataJourneyTab() {
-        return this.activeTab === 'dataJourney';
+        return this.activeTab === 'dataJourney' && this.showDataJourneyTab;
     }
 
     get isProcessFlowTab() {
@@ -52,6 +57,10 @@ export default class DependencyFinder extends LightningElement {
         return 'slds-tabs_default__item' + (this.isProcessFlowTab ? ' slds-is-active' : '');
     }
 
+    get showDataJourneyTab() {
+        return FIELD_METADATA_TYPES.has(this.selectedMetadataType);
+    }
+
     get hasBlastContext() {
         return !!this.blastMetadataType && !!this.blastComponentName;
     }
@@ -77,13 +86,22 @@ export default class DependencyFinder extends LightningElement {
     }
 
     handleTabClick(event) {
-        this.activeTab = event.currentTarget.dataset.tab;
+        const nextTab = event.currentTarget.dataset.tab;
+        if (nextTab === 'dataJourney' && !this.showDataJourneyTab) {
+            return;
+        }
+        this.activeTab = nextTab;
     }
 
     handleSearch(event) {
         this.searchResponse = event.detail;
         this.error = null;
         this.activeTab = 'finder';
+        this.applySelectionState({
+            metadataType: event.detail?.metadataType,
+            selectedObject: event.detail?.objectName,
+            selectedComponent: event.detail?.componentName
+        });
     }
 
     handleSearchError(event) {
@@ -103,5 +121,58 @@ export default class DependencyFinder extends LightningElement {
 
     handleBlastBack() {
         this.activeTab = 'finder';
+    }
+
+    handleSelectionChange(event) {
+        this.applySelectionState(event.detail || {});
+    }
+
+    applySelectionState(detail) {
+        this.selectedMetadataType = detail.metadataType || '';
+
+        const normalized = this.normalizeFieldSelection(
+            this.selectedMetadataType,
+            detail.selectedObject,
+            detail.selectedComponent
+        );
+        this.selectedObject = normalized.objectName;
+        this.selectedComponent = normalized.fieldName;
+
+        if (!this.showDataJourneyTab && this.activeTab === 'dataJourney') {
+            this.activeTab = 'finder';
+        }
+    }
+
+    normalizeFieldSelection(metadataType, objectName, componentName) {
+        if (!FIELD_METADATA_TYPES.has(metadataType)) {
+            return { objectName: '', fieldName: '' };
+        }
+
+        const normalizedObject = (objectName || '').trim();
+        const normalizedComponent = (componentName || '').trim();
+        if (!normalizedComponent) {
+            return { objectName: normalizedObject, fieldName: '' };
+        }
+
+        const fieldPrefix = normalizedObject ? `${normalizedObject}.` : '';
+        if (fieldPrefix && normalizedComponent.startsWith(fieldPrefix)) {
+            return {
+                objectName: normalizedObject,
+                fieldName: normalizedComponent.slice(fieldPrefix.length)
+            };
+        }
+
+        if (normalizedComponent.includes('.')) {
+            const separatorIndex = normalizedComponent.indexOf('.');
+            return {
+                objectName: normalizedObject || normalizedComponent.substring(0, separatorIndex),
+                fieldName: normalizedComponent.substring(separatorIndex + 1)
+            };
+        }
+
+        return {
+            objectName: normalizedObject,
+            fieldName: normalizedComponent
+        };
     }
 }
