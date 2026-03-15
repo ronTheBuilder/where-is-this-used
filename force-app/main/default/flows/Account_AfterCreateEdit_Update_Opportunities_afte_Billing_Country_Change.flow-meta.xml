@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>66.0</apiVersion>
+    <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
+    <environments>Default</environments>
+    <formulas>
+        <name>forT_BillingAddress</name>
+        <dataType>String</dataType>
+        <expression>TRIM(
+IF(ISBLANK({!$Record.BillingStreet}), &quot;&quot;, {!$Record.BillingStreet} &amp; BR()) &amp;
+IF(
+    AND(
+        NOT(ISBLANK({!$Record.BillingPostalCode})),
+        NOT(ISBLANK({!$Record.BillingCity}))
+    ),
+    {!$Record.BillingPostalCode} &amp; &quot; &quot; &amp; {!$Record.BillingCity} &amp; BR(),
+    IF(
+        NOT(ISBLANK({!$Record.BillingPostalCode})),
+        {!$Record.BillingPostalCode} &amp; BR(),
+        IF(
+            NOT(ISBLANK({!$Record.BillingCity})),
+            {!$Record.BillingCity} &amp; BR(),
+            &quot;&quot;
+        )
+    )
+) &amp;
+IF(ISBLANK({!$Record.BillingState}), &quot;&quot;, {!$Record.BillingState} &amp; BR()) &amp;
+IF(ISBLANK({!$Record.BillingCountry}), &quot;&quot;, {!$Record.BillingCountry})
+)</expression>
+    </formulas>
+    <interviewLabel>Account - AfterCreateEdit {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Account - AfterCreateEdit - Update Opportunities afte Billing Country Change</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <recordUpdates>
+        <name>update_Oppy</name>
+        <label>update Opportunity</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <inputAssignments>
+            <field>Description</field>
+            <value>
+                <elementReference>forT_BillingAddress</elementReference>
+            </value>
+        </inputAssignments>
+        <inputReference>$Record.Opportunities</inputReference>
+    </recordUpdates>
+    <start>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>update_Oppy</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Active__c</field>
+            <operator>EqualTo</operator>
+            <value>
+                <booleanValue>true</booleanValue>
+            </value>
+        </filters>
+        <filters>
+            <field>BillingCountry</field>
+            <operator>IsChanged</operator>
+            <value>
+                <booleanValue>true</booleanValue>
+            </value>
+        </filters>
+        <object>Account</object>
+        <recordTriggerType>CreateAndUpdate</recordTriggerType>
+        <triggerType>RecordAfterSave</triggerType>
+    </start>
+    <status>Active</status>
+</Flow>
